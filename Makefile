@@ -1,10 +1,11 @@
 .PHONY: install
 install:
-	pip3 install --upgrade -e .
+	pip install --upgrade cython
+	pip install --upgrade -e .
 
 .PHONY: test
 test:
-	python3 ./tests/pyparsing_test.py
+	python ./tests/pyparsing_test.py
 
 .PHONY: clean
 clean:
