@@ -38,13 +38,22 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 __version__ = "2.2.0"
-_file_name = "cPyparsing.pyx"
+_FILE_NAME = "cPyparsing.pyx"
+_WRAP_CALL_LINE = (
+    "                ret = func(*args[limit:])\n"
+)
+
+_WRAP_CALL_LINE_NUM = None
+with open(_FILE_NAME, "r") as this_file:
+    for i, line in enumerate(this_file):
+        if line == _WRAP_CALL_LINE:
+            _WRAP_CALL_LINE_NUM = i + 1
+if _WRAP_CALL_LINE_NUM is None:
+    raise Exception("failed to load " + _FILE_NAME)
 
 #-----------------------------------------------------------------------------------------------------------------------
 # IMPORTS:
 #-----------------------------------------------------------------------------------------------------------------------
-
-cimport cython
 
 import string
 from weakref import ref as wkref
@@ -1017,24 +1026,29 @@ def _trim_arity(func, maxargs=2):
 
     # traceback return data structure changed in Py3.5 - normalize back to plain tuples
     if system_version[:2] >= (3, 5):
-        def extract_stack(limit=None):
-            # special handling for Python 3.5.0 - extra deep call stack by 1
-            offset = -3 if system_version == (3, 5, 0) else -2
-            frame_summary = traceback.extract_stack(limit=None if limit is None else -offset + limit - 1)[offset]
-            return [(frame_summary.filename, frame_summary.lineno)]
+        # def extract_stack(limit=None):
+        #     # special handling for Python 3.5.0 - extra deep call stack by 1
+        #     offset = -3 if system_version == (3, 5, 0) else -2
+        #     frame_summary = traceback.extract_stack(limit=None if limit is None else -offset + limit - 1)[offset]
+        #     return [(frame_summary.filename, frame_summary.lineno)]
 
         def extract_tb(tb, limit=None):
             frames = traceback.extract_tb(tb, limit=limit)
             frame_summary = frames[-1]
             return [(frame_summary.filename, frame_summary.lineno)]
     else:
-        extract_stack = traceback.extract_stack
+        # extract_stack = traceback.extract_stack
         extract_tb = traceback.extract_tb
+
+    # synthesize what would be returned by traceback.extract_tb at the call to
+    # user's parse action 'func', so that we don't incur call penalty at parse time
+    tb_info_synth = (_FILE_NAME, _WRAP_CALL_LINE_NUM)
 
     def wrapper(*args):
         nonlocal foundArity, limit
         while True:
             try:
+                # any changes to the following line must be reflected in _WRAP_CALL_LINE
                 ret = func(*args[limit:])
                 foundArity = True
                 return ret
@@ -1046,7 +1060,7 @@ def _trim_arity(func, maxargs=2):
                     try:
                         tb = sys.exc_info()[-1]
                         tb_info = extract_tb(tb, limit=2)[-1]
-                        if tb_info[0] != _file_name:
+                        if tb_info != tb_info_synth:
                             raise
                     finally:
                         del tb

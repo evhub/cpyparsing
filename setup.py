@@ -42,6 +42,7 @@ setuptools.setup(
         },
     ),
     packages=setuptools.find_packages(),
+    include_package_data=True,
     version=version,
     name="cPyparsing",
     description="Cython implementation of PyParsing for use in Coconut.",
