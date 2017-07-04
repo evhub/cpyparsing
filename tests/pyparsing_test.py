@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 #
-# unitTests.py
+# pyparsing_test.py
 #
 # Unit tests for cPyparsing module
 #
@@ -10,6 +10,7 @@
 from unittest import TestCase, TestSuite, TextTestRunner
 import unittest
 import datetime
+import os.path
 
 from cPyparsing import ParseException
 #~ import HTMLTestRunner
@@ -31,6 +32,9 @@ else:
             sys.stdout.write(' '.join(map(str,args)) + '\n')
     print_ = _print
     from cStringIO import StringIO
+
+
+TEST_DIR = os.path.dirname(__file__)
 
 
 # see which Python implementation we are running
@@ -227,6 +231,7 @@ class ParseConfigFileTest(ParseTestCase):
         from examples import configParse
 
         def test(fnam,numToks,resCheckList):
+            fnam = os.path.join(TEST_DIR, fnam)
             print_("Parsing",fnam,"...", end=' ')
             with open(fnam) as infile:
                 iniFileLines = "\n".join(infile.read().splitlines())
@@ -634,7 +639,7 @@ class CaselessOneOfTest(ParseTestCase):
 class AsXMLTest(ParseTestCase):
     def runTest(self):
 
-        import cPyparsing
+        import cPyparsing as pyparsing
         # test asXML()
 
         aaa = pyparsing.Word("a").setResultsName("A")
@@ -745,7 +750,7 @@ class AsXMLTest2(ParseTestCase):
 
 class CommentParserTest(ParseTestCase):
     def runTest(self):
-        import cPyparsing
+        import cPyparsing as pyparsing
         print_("verify processing of C and HTML comments")
         testdata = """
         /* */
@@ -904,7 +909,7 @@ class ParseExpressionResultsAccumulateTest(ParseTestCase):
 
 class ReStringRangeTest(ParseTestCase):
     def runTest(self):
-        import cPyparsing
+        import cPyparsing as pyparsing
         testCases = (
             (r"[A-Z]"),
             (r"[A-A]"),
@@ -965,7 +970,7 @@ class SkipToParserTests(ParseTestCase):
         from cPyparsing import Literal, SkipTo, NotAny, cStyleComment, ParseBaseException
 
         thingToFind = Literal('working')
-        testExpr = SkipTo(Literal(';'), include=True, ignore=cStyleComment) + thingToFind
+        testExpr = SkipTo(Literal(';'), includeMatch=True, ignore=cStyleComment) + thingToFind
 
         def tryToParse (someText, fail_expected=False):
             try:
@@ -981,7 +986,7 @@ class SkipToParserTests(ParseTestCase):
         tryToParse('some text /* comment with ; in */some other stuff; working')
 
         # tests for optional failOn argument
-        testExpr = SkipTo(Literal(';'), include=True, ignore=cStyleComment, failOn='other') + thingToFind
+        testExpr = SkipTo(Literal(';'), includeMatch=True, ignore=cStyleComment, failOn='other') + thingToFind
         tryToParse('some text /* comment with ; in */; working')
         tryToParse('some text /* comment with ; in */some other stuff; working', fail_expected=True)
 
@@ -1337,7 +1342,7 @@ class InfixNotationGrammarTest3(ParseTestCase):
 class InfixNotationGrammarTest4(ParseTestCase):
     def runTest(self):
 
-        import cPyparsing
+        import cPyparsing as pyparsing
 
         word = pyparsing.Word(pyparsing.alphas)
 
@@ -1517,7 +1522,7 @@ class ParseResultsWithNamedTupleTest(ParseTestCase):
 
 class ParseHTMLTagsTest(ParseTestCase):
     def runTest(self):
-        import cPyparsing
+        import cPyparsing as pyparsing
         test = """
             <BODY>
             <BODY BGCOLOR="#00FFCC">
@@ -1620,7 +1625,7 @@ class ParseUsingRegex(ParseTestCase):
     def runTest(self):
 
         import re
-        import cPyparsing
+        import cPyparsing as pyparsing
 
         signedInt = pyparsing.Regex(r'[-+][0-9]+')
         unsignedInt = pyparsing.Regex(r'[0-9]+')
@@ -3138,7 +3143,8 @@ class ParseFileTest(ParseTestCase):
         results = OneOrMore(integer).parseFile(input_file)
         print_(results)
 
-        results = OneOrMore(integer).parseFile('test/parsefiletest_input_file.txt')
+        file_path = os.path.join(TEST_DIR, 'test/parsefiletest_input_file.txt')
+        results = OneOrMore(integer).parseFile(file_path)
         print_(results)
 
 
@@ -3388,7 +3394,7 @@ class DefaultKeywordCharsTest(ParseTestCase):
 
 class ColTest(ParseTestCase):
     def runTest(self):
-        import cPyparsing
+        import cPyparsing as pyparsing
 
         test = "*\n* \n*   ALF\n*\n"
         initials = [c for i, c in enumerate(test) if pyparsing.col(i, test) == 1]
@@ -3398,7 +3404,7 @@ class ColTest(ParseTestCase):
 
 class MiscellaneousParserTests(ParseTestCase):
     def runTest(self):
-        import cPyparsing
+        import cPyparsing as pyparsing
 
         runtests = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         if IRON_PYTHON_ENV:

@@ -28,14 +28,19 @@ from Cython.Build import cythonize
 pyparsing_version = "2.2.0"
 development_version = "1"
 
-version = pyparsing_version + "-post_dev" + development_version
+version = pyparsing_version + "-post" + development_version
 
 #-----------------------------------------------------------------------------------------------------------------------
 # SETUP:
 #-----------------------------------------------------------------------------------------------------------------------
 
 setuptools.setup(
-    ext_modules=cythonize("cPyparsing.pyx"),
+    ext_modules=cythonize(
+        "cPyparsing.pyx",
+        compiler_directives={
+            "language_level": 3,
+        },
+    ),
     packages=setuptools.find_packages(),
     version=version,
     name="cPyparsing",

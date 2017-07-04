@@ -1,13 +1,14 @@
 .PHONY: install
 install:
-	pip install --upgrade -e .
+	pip3 install --upgrade -e .
 
 .PHONY: test
-test:
-	pytest --strict -s tests
+test: install
+	python3 ./tests/pyparsing_test.py
 
 .PHONY: clean
 clean:
 	rm -rf ./dist ./build
-	find . -name '*.pyc' -delete
+	find . -name '*.c' -delete
+	find . -name '*.py[cd]' -delete
 	find . -name '__pycache__' -delete

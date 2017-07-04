@@ -4,7 +4,8 @@
 # INFO:
 #-----------------------------------------------------------------------------------------------------------------------
 
-"""cPyparsing is an alternative implementation of pyparsing in Cython.
+"""
+cPyparsing is an alternative implementation of pyparsing in Cython.
 
 cPyparsing is a module by Evan Hubinger released under the Apache 2.0 license.
 
@@ -33,8 +34,17 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 
 #-----------------------------------------------------------------------------------------------------------------------
+# CONSTANTS:
+#-----------------------------------------------------------------------------------------------------------------------
+
+__version__ = "2.2.0"
+_file_name = "cPyparsing.pyx"
+
+#-----------------------------------------------------------------------------------------------------------------------
 # IMPORTS:
 #-----------------------------------------------------------------------------------------------------------------------
+
+cimport cython
 
 import string
 from weakref import ref as wkref
@@ -48,6 +58,7 @@ import pprint
 import traceback
 import types
 from datetime import datetime
+import os.path
 
 try:
     from _thread import RLock
@@ -995,47 +1006,24 @@ def nullDebugAction(*args):
     """'Do-nothing' debug action, to suppress debugging output during parsing."""
     pass
 
-# Only works on Python 3.x - nonlocal is toxic to Python 2 installs
-#~ 'decorator to trim function calls to match the arity of the target'
-#~ def _trim_arity(func, maxargs=3):
-    #~ if func in singleArgBuiltins:
-    #~ return lambda s,l,t: func(t)
-    #~ limit = 0
-    #~ foundArity = False
-    #~ def wrapper(*args):
-    #~ nonlocal limit,foundArity
-    #~ while 1:
-    #~ try:
-    #~ ret = func(*args[limit:])
-    #~ foundArity = True
-    #~ return ret
-    #~ except TypeError:
-    #~ if limit == maxargs or foundArity:
-    #~ raise
-    #~ limit += 1
-    #~ continue
-    #~ return wrapper
-
-
-# this version is Python 2.x-3.x cross-compatible
-'decorator to trim function calls to match the arity of the target'
-
 
 def _trim_arity(func, maxargs=2):
+    """decorator to trim function calls to match the arity of the target"""
+
     if func in singleArgBuiltins:
         return lambda s, l, t: func(t)
-    limit = [0]
-    foundArity = [False]
+    limit = 0
+    foundArity = False
 
     # traceback return data structure changed in Py3.5 - normalize back to plain tuples
     if system_version[:2] >= (3, 5):
-        def extract_stack(limit=0):
+        def extract_stack(limit=None):
             # special handling for Python 3.5.0 - extra deep call stack by 1
             offset = -3 if system_version == (3, 5, 0) else -2
-            frame_summary = traceback.extract_stack(limit=-offset + limit - 1)[offset]
+            frame_summary = traceback.extract_stack(limit=None if limit is None else -offset + limit - 1)[offset]
             return [(frame_summary.filename, frame_summary.lineno)]
 
-        def extract_tb(tb, limit=0):
+        def extract_tb(tb, limit=None):
             frames = traceback.extract_tb(tb, limit=limit)
             frame_summary = frames[-1]
             return [(frame_summary.filename, frame_summary.lineno)]
@@ -1043,35 +1031,30 @@ def _trim_arity(func, maxargs=2):
         extract_stack = traceback.extract_stack
         extract_tb = traceback.extract_tb
 
-    # synthesize what would be returned by traceback.extract_stack at the call to
-    # user's parse action 'func', so that we don't incur call penalty at parse time
-
-    LINE_DIFF = 6
-    # IF ANY CODE CHANGES, EVEN JUST COMMENTS OR BLANK LINES, BETWEEN THE NEXT LINE AND
-    # THE CALL TO FUNC INSIDE WRAPPER, LINE_DIFF MUST BE MODIFIED!!!!
-    this_line = extract_stack(limit=2)[-1]
-    pa_call_line_synth = (this_line[0], this_line[1] + LINE_DIFF)
-
     def wrapper(*args):
+        nonlocal foundArity, limit
         while True:
             try:
-                ret = func(*args[limit[0]:])
-                foundArity[0] = True
+                ret = func(*args[limit:])
+                foundArity = True
                 return ret
             except TypeError:
                 # re-raise TypeErrors if they did not come from our arity testing
-                if foundArity[0]:
+                if foundArity:
                     raise
                 else:
                     try:
                         tb = sys.exc_info()[-1]
-                        if not extract_tb(tb, limit=2)[-1][:2] == pa_call_line_synth:
+                        tb_info = extract_tb(tb, limit=2)[-1]
+                        if tb_info[0] != _file_name:
                             raise
+                        else:
+                            print("suppressed", tb_info)
                     finally:
                         del tb
 
-                if limit[0] <= maxargs:
-                    limit[0] += 1
+                if limit <= maxargs:
+                    limit += 1
                     continue
                 raise
 
@@ -5063,7 +5046,7 @@ class withAttribute(object):
     """
     ANY_VALUE = object()
 
-    def __new__(*args, **attrDict):
+    def __new__(cls, *args, **attrDict):
         if args:
             attrs = args[:]
         else:
@@ -5074,7 +5057,7 @@ class withAttribute(object):
             for attrName, attrValue in attrs:
                 if attrName not in tokens:
                     raise ParseException(s, l, "no matching attribute " + attrName)
-                if attrValue != withAttribute.ANY_VALUE and tokens[attrName] != attrValue:
+                if attrValue != cls.ANY_VALUE and tokens[attrName] != attrValue:
                     raise ParseException(s, l, "attribute '%s' has value '%s', must be '%s'" %
                                          (attrName, tokens[attrName], attrValue))
         return pa
