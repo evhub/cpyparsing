@@ -1,6 +1,6 @@
 import urllib.request, urllib.parse, urllib.error
 
-from pyparsing import makeHTMLTags, SkipTo
+from cPyparsing import makeHTMLTags, SkipTo
 
 # read HTML from a web page
 serverListPage = urllib.request.urlopen( "http://www.yahoo.com" )

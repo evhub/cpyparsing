@@ -2,17 +2,17 @@
 # matchPreviousDemo.py
 #
 
-from pyparsing import *
+from cPyparsing import *
 
 src = """
 class a
 ...
 end a;
- 
+
 class b
 ...
 end b;
- 
+
 class c
 ...
 end d;"""
@@ -20,7 +20,7 @@ end d;"""
 
 identifier = Word(alphas)
 
-classIdent = identifier("classname")  # note that this also makes a copy of identifier 
+classIdent = identifier("classname")  # note that this also makes a copy of identifier
 classHead = "class" + classIdent
 classBody = "..."
 classEnd = "end" + matchPreviousLiteral(classIdent) + ';'

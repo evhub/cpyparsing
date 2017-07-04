@@ -9,9 +9,9 @@
 #
 # Copyright 2004, by Alberto Santini http://www.albertosantini.it/chess/
 #
-from pyparsing import alphanums, nums, quotedString
-from pyparsing import Combine, Forward, Group, Literal, oneOf, OneOrMore, Optional, Suppress, ZeroOrMore, White, Word
-from pyparsing import ParseException
+from cPyparsing import alphanums, nums, quotedString
+from cPyparsing import Combine, Forward, Group, Literal, oneOf, OneOrMore, Optional, Suppress, ZeroOrMore, White, Word
+from cPyparsing import ParseException
 
 #
 # define pgn grammar

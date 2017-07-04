@@ -1,6 +1,6 @@
 # URL extractor
 # Copyright 2004, Paul McGuire
-from pyparsing import Literal,Suppress,CharsNotIn,CaselessLiteral,\
+from cPyparsing import Literal,Suppress,CharsNotIn,CaselessLiteral,\
         Word,dblQuotedString,alphanums,SkipTo,makeHTMLTags
 import urllib.request, urllib.parse, urllib.error
 import pprint
@@ -25,9 +25,9 @@ serverListPage.close()
 for toks,strt,end in link.scanString(htmlText):
     print(toks.startA.href,"->",toks.body)
 
-# Create dictionary from list comprehension, assembled from each pair of tokens returned 
+# Create dictionary from list comprehension, assembled from each pair of tokens returned
 # from a matched URL.
-pprint.pprint( 
+pprint.pprint(
     dict( [ (toks.body,toks.startA.href) for toks,strt,end in link.scanString(htmlText) ] )
     )
 

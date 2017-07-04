@@ -1,9 +1,9 @@
-# 
+#
 # dhcpd_leases_parser.py
 #
 # Copyright 2008, Paul McGuire
 #
-# Sample parser to parse a dhcpd.leases file to extract leases 
+# Sample parser to parse a dhcpd.leases file to extract leases
 # and lease attributes
 #
 # format ref: http://www.linuxmanpages.com/man5/dhcpd.leases.5.php
@@ -43,7 +43,7 @@ lease 192.168.0.239 {
 }
 """
 
-from pyparsing import *
+from cPyparsing import *
 import datetime,time
 
 LBRACE,RBRACE,SEMI,QUOTE = map(Suppress,'{};"')

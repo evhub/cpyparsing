@@ -1048,8 +1048,6 @@ def _trim_arity(func, maxargs=2):
                         tb_info = extract_tb(tb, limit=2)[-1]
                         if tb_info[0] != _file_name:
                             raise
-                        else:
-                            print("suppressed", tb_info)
                     finally:
                         del tb
 

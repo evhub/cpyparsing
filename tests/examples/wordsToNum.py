@@ -3,7 +3,7 @@
 #
 # Sample parser grammar to read a number given in words, and return the numeric value.
 #
-from pyparsing import *
+from cPyparsing import *
 from operator import mul
 from functools import reduce
 
@@ -68,11 +68,11 @@ mag = Or(makeLit(s,v) for s,v in majorDefinitions)
 
 wordprod = lambda t: reduce(mul,t)
 wordsum = lambda t: sum(t)
-numPart = (((( units + Optional(hundreds) ).setParseAction(wordprod) + 
-               Optional(tens)).setParseAction(wordsum) 
+numPart = (((( units + Optional(hundreds) ).setParseAction(wordprod) +
+               Optional(tens)).setParseAction(wordsum)
                ^ tens )
                + Optional(units) ).setParseAction(wordsum)
-numWords = OneOrMore( (numPart + Optional(mag)).setParseAction(wordprod) 
+numWords = OneOrMore( (numPart + Optional(mag)).setParseAction(wordprod)
                     ).setParseAction(wordsum) + StringEnd()
 numWords.ignore(Literal("-"))
 numWords.ignore(CaselessLiteral("and"))

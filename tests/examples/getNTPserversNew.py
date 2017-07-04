@@ -6,7 +6,7 @@
 # Copyright 2004-2010, by Paul McGuire
 # September, 2010 - updated to more current use of setResultsName, new NIST URL
 #
-from pyparsing import (Word, Combine, Suppress, SkipTo, nums, makeHTMLTags,
+from cPyparsing import (Word, Combine, Suppress, SkipTo, nums, makeHTMLTags,
                         delimitedList, alphas, alphanums)
 try:
     import urllib.request
@@ -19,8 +19,8 @@ integer = Word(nums)
 ipAddress = Combine( integer + "." + integer + "." + integer + "." + integer )
 hostname = delimitedList(Word(alphas,alphanums+"-_"),".",combine=True)
 tdStart,tdEnd = makeHTMLTags("td")
-timeServerPattern =  (tdStart + hostname("hostname") + tdEnd + 
-                      tdStart + ipAddress("ipAddr") + tdEnd + 
+timeServerPattern =  (tdStart + hostname("hostname") + tdEnd +
+                      tdStart + ipAddress("ipAddr") + tdEnd +
                       tdStart + SkipTo(tdEnd)("loc") + tdEnd)
 
 # get list of time servers

@@ -7,7 +7,7 @@
 # Copyright 2006, by Paul McGuire
 #
 
-from pyparsing import *
+from cPyparsing import *
 
 integer = Word(nums).setParseAction(lambda t:int(t[0]))
 variable = Word(alphas,exact=1)
@@ -34,7 +34,7 @@ factop = Literal('!')
 #       - rightLeftAssoc is the indicator whether the operator is
 #          right or left associative, using the pyparsing-defined
 #          constants opAssoc.RIGHT and opAssoc.LEFT.
-#       - parseAction is the parse action to be associated with 
+#       - parseAction is the parse action to be associated with
 #          expressions matching this operator expression (the
 #          parse action tuple member may be omitted)
 #   3.  Call infixNotation passing the operand expression and
@@ -42,7 +42,7 @@ factop = Literal('!')
 #       as the generated pyparsing expression.  You can then use
 #       this expression to parse input strings, or incorporate it
 #       into a larger, more complex grammar.
-#       
+#
 expr = infixNotation( operand,
     [("!", 1, opAssoc.LEFT),
      ("^", 2, opAssoc.RIGHT),
@@ -63,5 +63,5 @@ test = ["9 + 2 + 3",
 for t in test:
     print(t)
     print(expr.parseString(t))
-    print('') 
+    print('')
 

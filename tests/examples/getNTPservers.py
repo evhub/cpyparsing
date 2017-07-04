@@ -5,7 +5,7 @@
 #
 # Copyright 2004, by Paul McGuire
 #
-from pyparsing import Word, Combine, Suppress, CharsNotIn, nums
+from cPyparsing import Word, Combine, Suppress, CharsNotIn, nums
 import urllib.request, urllib.parse, urllib.error
 
 integer = Word(nums)

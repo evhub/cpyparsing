@@ -8,7 +8,7 @@ __version__ = "1.0"
 __author__ = "Daniel 'Dang' Griffith <pythondev - dang at lazytwinacres . net>"
 
 
-from pyparsing import Literal, CaselessLiteral, Word, delimitedList \
+from cPyparsing import Literal, CaselessLiteral, Word, delimitedList \
     , Optional, Combine, Group, alphas, nums, alphanums, Forward \
     , oneOf, sglQuotedString, OneOrMore, ZeroOrMore, CharsNotIn
 
@@ -101,11 +101,11 @@ hint_attribute_value_pair = hint_attribute + EQUALS + value
 layout_attribute_value_pair = layout_attribute + EQUALS + value
 generic_attribute_value_pair = attribute + EQUALS + value
 attribute_value_pair << Group(
-      category_attribute_value_pair 
-    | event_attribute_value_pair 
-    | font_attribute_value_pair 
-    | hint_attribute_value_pair 
-    | layout_attribute_value_pair 
+      category_attribute_value_pair
+    | event_attribute_value_pair
+    | font_attribute_value_pair
+    | hint_attribute_value_pair
+    | layout_attribute_value_pair
     | generic_attribute_value_pair
     )
 

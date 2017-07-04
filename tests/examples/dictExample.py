@@ -5,7 +5,7 @@
 #
 # Copyright (c) 2003, Paul McGuire
 #
-from pyparsing import Literal, Word, Group, Dict, ZeroOrMore, alphas, nums, delimitedList
+from cPyparsing import Literal, Word, Group, Dict, ZeroOrMore, alphas, nums, delimitedList
 import pprint
 
 testData = """
@@ -21,8 +21,8 @@ testData = """
 
 # define grammar for datatable
 heading = (Literal(
-"+-------+------+------+------+------+------+------+------+------+") + 
-"|       |  A1  |  B1  |  C1  |  D1  |  A2  |  B2  |  C2  |  D2  |" + 
+"+-------+------+------+------+------+------+------+------+------+") +
+"|       |  A1  |  B1  |  C1  |  D1  |  A2  |  B2  |  C2  |  D2  |" +
 "+=======+======+======+======+======+======+======+======+======+").suppress()
 vert = Literal("|").suppress()
 number = Word(nums)

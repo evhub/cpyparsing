@@ -2,7 +2,7 @@
 
 from os.path import join as pjoin, dirname
 
-from pyparsing import ParseException
+from cPyparsing import ParseException
 from .btpyparse import Macro
 from . import btpyparse as bp
 

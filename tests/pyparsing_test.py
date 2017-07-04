@@ -454,7 +454,7 @@ class ParseIDLTest(ParseTestCase):
                   raises ( TestException );
                 };
               };
-            """, 0, 57
+            """, 0, 56
             )
         test(
             """

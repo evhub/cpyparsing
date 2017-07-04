@@ -1,4 +1,4 @@
-# vim:fileencoding=utf-8 
+# vim:fileencoding=utf-8
 #
 # greetingInGreek.py
 #
@@ -6,14 +6,14 @@
 #
 # Copyright 2004-2016, by Paul McGuire
 #
-from pyparsing import Word 
+from cPyparsing import Word
 
 # define grammar
-alphas = ''.join(chr(x) for x in range(0x386, 0x3ce)) 
-greet = Word(alphas) + ',' + Word(alphas) + '!' 
+alphas = ''.join(chr(x) for x in range(0x386, 0x3ce))
+greet = Word(alphas) + ',' + Word(alphas) + '!'
 
 # input string
-hello = "Καλημέρα, κόσμε!".decode('utf-8') 
+hello = "Καλημέρα, κόσμε!".decode('utf-8')
 
 # parse input string
 print(greet.parseString( hello ))

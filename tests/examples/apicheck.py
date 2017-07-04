@@ -6,15 +6,15 @@
 # Copyright (c) 2004-2016, Paul McGuire
 #
 
-from pyparsing import *
+from cPyparsing import *
 
 # define punctuation and simple tokens for locating API calls
 LBRACK,RBRACK,LBRACE,RBRACE = map(Suppress,"[]{}")
 ident = Word(alphas,alphanums+"_") | QuotedString("{",endQuoteChar="}")
 arg = "$" + ident
 
-# define an API call with a specific number of arguments - using '-' 
-# will ensure that after matching procname, an incorrect number of args will 
+# define an API call with a specific number of arguments - using '-'
+# will ensure that after matching procname, an incorrect number of args will
 # raise a ParseSyntaxException, which will interrupt the scanString
 def apiProc(name, numargs):
     return LBRACK + Keyword(name)("procname") - arg*numargs + RBRACK
@@ -55,4 +55,4 @@ while 1:
         api_scanner = apiRef.scanString(test)
     except StopIteration:
         break
-        
+

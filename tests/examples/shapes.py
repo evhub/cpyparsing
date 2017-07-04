@@ -1,6 +1,6 @@
 # shapes.py
 #
-#   A sample program showing how parse actions can convert parsed 
+#   A sample program showing how parse actions can convert parsed
 # strings into a data type or object.
 #
 # Copyright 2012, Paul T. McGuire
@@ -13,7 +13,7 @@ class Shape(object):
 
     def area(self):
         raise NotImplementedException()
-    
+
     def __str__(self):
         return "<%s>: %s" % (self.__class__.__name__, self.__dict__)
 
@@ -30,7 +30,7 @@ class Circle(Shape):
         return 3.14159 * self.radius**2
 
 
-from pyparsing import *
+from cPyparsing import *
 
 number = Regex(r'-?\d+(\.\d*)?').setParseAction(lambda t:float(t[0]))
 

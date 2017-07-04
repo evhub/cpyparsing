@@ -3,7 +3,7 @@
 # Copyright, 2006, by Paul McGuire
 #
 from __future__ import print_function
-from pyparsing import *
+from cPyparsing import *
 
 
 cvtBool = lambda t:t[0]=='True'
@@ -35,11 +35,11 @@ noneLiteral = Literal("None").setParseAction(replaceWith(None))
 listItem = real|integer|quotedString|unicodeString|boolLiteral|noneLiteral| \
             Group(listStr) | tupleStr | dictStr
 
-tupleStr << ( Suppress("(") + Optional(delimitedList(listItem)) + 
+tupleStr << ( Suppress("(") + Optional(delimitedList(listItem)) +
             Optional(Suppress(",")) + Suppress(")") )
 tupleStr.setParseAction( cvtTuple )
 
-listStr << (lbrack + Optional(delimitedList(listItem) + 
+listStr << (lbrack + Optional(delimitedList(listItem) +
             Optional(Suppress(","))) + rbrack)
 listStr.setParseAction(cvtList, lambda t: t[0])
 

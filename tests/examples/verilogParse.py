@@ -68,11 +68,11 @@ import sys
 
 __version__ = "1.0.11"
 
-from pyparsing import Literal, CaselessLiteral, Keyword, Word, OneOrMore, ZeroOrMore, \
+from cPyparsing import Literal, CaselessLiteral, Keyword, Word, OneOrMore, ZeroOrMore, \
         Forward, NotAny, delimitedList, Group, Optional, Combine, alphas, nums, restOfLine, cStyleComment, \
         alphanums, printables, dblQuotedString, empty, ParseException, ParseResults, MatchFirst, oneOf, GoToColumn, \
         ParseResults,StringEnd, FollowedBy, ParserElement, And, Regex, cppStyleComment#,__version__
-import pyparsing
+import cPyparsing as pyparsing
 usePackrat = False
 usePsyco = False
 
@@ -125,7 +125,7 @@ def Verilog_BNF():
         identifier2 = Regex(r"\\\S+").setParseAction(lambda t:t[0][1:]).setName("escapedIdent")#.setDebug()
         identifier = identifier1 | identifier2
         assert(identifier2 == r'\abc')
-        
+
         hexnums = nums + "abcdefABCDEF" + "_?"
         base = Regex("'[bBoOdDhH]").setName("base")
         basedNumber = Combine( Optional( Word(nums + "_") ) + base + Word(hexnums+"xXzZ"),
@@ -557,10 +557,10 @@ def Verilog_BNF():
         port = portExpr | Group( ( DOT + identifier + LPAR + portExpr + RPAR ) )
 
         moduleHdr = Group ( oneOf("module macromodule") + identifier +
-                 Optional( LPAR + Group( Optional( delimitedList( 
-                                    Group(oneOf("input output") + 
+                 Optional( LPAR + Group( Optional( delimitedList(
+                                    Group(oneOf("input output") +
                                             (netDecl1Arg | netDecl2Arg | netDecl3Arg) ) |
-                                    port ) ) ) + 
+                                    port ) ) ) +
                             RPAR ) + SEMI ).setName("moduleHdr")
 
         module = Group(  moduleHdr +
@@ -710,7 +710,7 @@ else:
     #~ lp = LineProfiler(ParseResults.__init__)
 
     main()
-    
+
     #~ lp.print_stats()
     #~ import hotshot
     #~ p = hotshot.Profile("vparse.prof",1,1)

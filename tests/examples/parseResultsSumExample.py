@@ -9,7 +9,7 @@ samplestr2 = "garbage;ID PARI12345678;more garbage\nDOB 10-10-2010;more garbage"
 samplestr3 = "garbage;DOB 10-10-2010"
 samplestr4 = "garbage;ID PARI12345678;more garbage- I am cool"
 
-from pyparsing import *
+from cPyparsing import *
 dob_ref = "DOB" + Regex(r"\d{2}-\d{2}-\d{4}")("dob")
 id_ref = "ID" + Word(alphanums,exact=12)("id")
 info_ref = "-" + restOfLine("info")
@@ -22,5 +22,5 @@ for test in (samplestr1,samplestr2,samplestr3,samplestr4,):
     print(person.dump())
     print()
 
-    
-    
+
+

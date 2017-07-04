@@ -1,9 +1,9 @@
-from searchparser import SearchQueryParser
+from .searchparser import SearchQueryParser
 
 products = [ "grape juice", "grape jelly", "orange juice", "orange jujubees",
     "strawberry jam", "prune juice", "prune butter", "orange marmalade",
     "grapefruit juice" ]
-    
+
 class FruitSearchParser(SearchQueryParser):
     def GetWord(self, word):
         return set( p for p in products if p.startswith(word + " ") )

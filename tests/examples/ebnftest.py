@@ -1,12 +1,12 @@
 #
-# ebnftest.py 
+# ebnftest.py
 #
 # Test script for ebnf.py
 #
 # Submitted 2004 by Seo Sanghyeon
 #
 print('Importing pyparsing...')
-from pyparsing import *
+from cPyparsing import *
 
 print('Constructing EBNF parser with pyparsing...')
 import ebnf
@@ -24,11 +24,11 @@ syntactic_primary = optional_sequence | repeated_sequence |
 optional_sequence = '[', definitions_list, ']';
 repeated_sequence = '{', definitions_list, '}';
 grouped_sequence = '(', definitions_list, ')';
-(* 
+(*
 terminal_string = "'", character - "'", {character - "'"}, "'" |
   '"', character - '"', {character - '"'}, '"';
  meta_identifier = letter, {letter | digit};
-integer = digit, {digit}; 
+integer = digit, {digit};
 *)
 '''
 

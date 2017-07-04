@@ -5,7 +5,7 @@
 # copyright 2006, Paul McGuire
 #
 
-from pyparsing import oneOf, OneOrMore, printables, StringEnd
+from cPyparsing import oneOf, OneOrMore, printables, StringEnd
 
 test = "The quick brown fox named 'Aloysius' lives at 123 Main Street (and jumps over lazy dogs in his spare time)."
 nonAlphas = [ c for c in printables if not c.isalpha() ]

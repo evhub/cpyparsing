@@ -6,16 +6,16 @@
 #  paired delimiters for grouping lists and sublists
 #
 
-from pyparsing import *
+from cPyparsing import *
 import pprint
 
 data = """
-{ 
-     { item1 "item with } in it" } 
-     { 
-      {item2a item2b } 
-      {item3} 
-     } 
+{
+     { item1 "item with } in it" }
+     {
+      {item2a item2b }
+      {item3}
+     }
 
 }
 """

@@ -2,13 +2,13 @@
 #
 # Copyright (c) 2006,2016  Paul McGuire
 #
-# A sample of a pyparsing grammar using indentation for 
+# A sample of a pyparsing grammar using indentation for
 # grouping (like Python does).
 #
 # Updated to use indentedBlock helper method.
 #
 
-from pyparsing import *
+from cPyparsing import *
 
 data = """\
 def A(z):

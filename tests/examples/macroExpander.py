@@ -1,6 +1,6 @@
 # macroExpander.py
 #
-# Example pyparsing program for performing macro expansion, similar to 
+# Example pyparsing program for performing macro expansion, similar to
 # the C pre-processor.  This program is not as fully-featured, simply
 # processing macros of the form:
 #     #def xxx yyyyy
@@ -12,13 +12,13 @@
 #
 # Copyright 2007 by Paul McGuire
 #
-from pyparsing import *
+from cPyparsing import *
 
-# define the structure of a macro definition (the empty term is used 
+# define the structure of a macro definition (the empty term is used
 # to advance to the next non-whitespace character)
 identifier = Word(alphas+"_",alphanums+"_")
 macroDef = "#def" + identifier("macro") + empty + restOfLine("value")
-                
+
 # define a placeholder for defined macros - initially nothing
 macroExpr = Forward()
 macroExpr << NoMatch()
