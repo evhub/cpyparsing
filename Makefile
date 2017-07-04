@@ -3,7 +3,7 @@ install:
 	pip3 install --upgrade -e .
 
 .PHONY: test
-test: install
+test:
 	python3 ./tests/pyparsing_test.py
 
 .PHONY: clean
