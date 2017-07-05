@@ -3705,4 +3705,4 @@ Average Time: %rs
 """ % (bench_run(),))
 
 if __name__ == "__main__":
-    bench()
+    run()
