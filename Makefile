@@ -21,6 +21,7 @@ clean:
 	rm -rf ./dist ./build
 	find . -name '*.pyc' -delete
 	find . -name '*.c' -delete
+	find . -name '*.so' -delete
 	find . -name '*.pyd' -delete
 	find . -name '__pycache__' -delete
 

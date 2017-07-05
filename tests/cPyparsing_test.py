@@ -2788,9 +2788,8 @@ class TrimArityExceptionMaskingTest2(ParseTestCase):
 
         # construct deep call tree
         def A():
-            if PY3:
-                import traceback
-                traceback.printstack(limit=2)
+            # import traceback
+            # traceback.printstack(limit=2)
 
             from cPyparsing import Word
 

@@ -113,7 +113,7 @@ if PY_3:
 else:
     range = xrange
 
-    _ustr = unicode
+    str = _ustr = unicode
     # def _ustr(obj):
     #     """Drop-in replacement for str(obj) that tries to be Unicode friendly. It first tries
     #        str(obj). If that fails with a UnicodeEncodeError, then it tries unicode(obj). It
