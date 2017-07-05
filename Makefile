@@ -16,18 +16,21 @@ clean:
 wipe: clean
 	rm -rf *.egg-info
 
-.PHONY: upload-sys
-upload-sys: clean install
-	pip install --upgrade twine
-	python2 setup.py sdist bdist_wheel
-	-twine upload dist/*
-	python3 setup.py sdist bdist_wheel
-	-twine upload dist/*
-
 .PHONY: upload
-upload:
-	make upload-sys
-	sh -c "make upload-sys"
+upload: install
+	pip install --upgrade twine
+	make upload-2
+	make upload-3
+
+.PHONY: upload-2
+upload-2:
+	python2 setup.py sdist bdist_wheel
+	twine upload dist/*
+
+.PHONY: upload-3
+upload-3:
+	python3 setup.py sdist bdist_wheel
+	twine upload dist/*
 
 .PHONY: test
 test:
