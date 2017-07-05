@@ -45,16 +45,20 @@ def update_file():
             if line == wrap_call_line:
                 wrap_call_line_num = i + 1
         if wrap_call_line_num is None:
-            raise Exception("failed to find " + repr(wrap_call_line) + " in " + file_name)
+            raise IOError("failed to find " + repr(wrap_call_line) + " in " + file_name)
 
         f.seek(0)
 
         new_lines = []
+        seen_version = False
         for line in f:
             if line.startswith("__version__ ="):
-                line = "__version__ = " + repr(pyparsing_version) + "\n"
+                line = '__version__ = "' + pyparsing_version + '"\n'
+                if seen_version:
+                    raise IOError("repeated __version__ in " + file_name)
+                seen_version = True
             elif line.startswith("_FILE_NAME ="):
-                line = "_FILE_NAME = " + repr(file_name) + "\n"
+                line = '_FILE_NAME = "' + file_name + '"\n'
             elif line.startswith("_WRAP_CALL_LINE_NUM ="):
                 line = "_WRAP_CALL_LINE_NUM = " + repr(wrap_call_line_num) + "\n"
             new_lines.append(line)

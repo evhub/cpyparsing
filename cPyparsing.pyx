@@ -38,18 +38,18 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # automatically updated by constants.py prior to compilation
-__version__ = '2.2.0'
-_FILE_NAME = 'cPyparsing.pyx'
+__version__ = "2.2.0"
+_FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1043
 
 #-----------------------------------------------------------------------------------------------------------------------
 # IMPORTS:
 #-----------------------------------------------------------------------------------------------------------------------
 
+import sys
 import string
 from weakref import ref as wkref
 import copy
-import sys
 import warnings
 import re
 import sre_constants
@@ -1050,7 +1050,7 @@ def _trim_arity(func, maxargs=2):
                 else:
                     try:
                         tb = sys.exc_info()[-1]
-                        tb_info = extract_tb(tb, limit=2)[-1]
+                        tb_info = extract_tb(tb, limit=2)[-1][:2]
                         if tb_info != tb_info_synth:
                             raise
                     finally:
