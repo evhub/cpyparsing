@@ -4,6 +4,18 @@ install:
 	python ./constants.py
 	pip install --upgrade -e .
 
+.PHONY: install-2
+install-2:
+	pip2 install --upgrade pip setuptools cython
+	python2 ./constants.py
+	pip2 install --upgrade -e .
+
+.PHONY: install-3
+install-3:
+	pip3 install --upgrade pip setuptools cython
+	python3 ./constants.py
+	pip3 install --upgrade -e .
+
 .PHONY: clean
 clean:
 	rm -rf ./dist ./build
@@ -35,6 +47,14 @@ upload-3:
 .PHONY: test
 test:
 	python ./tests/cPyparsing_test.py
+
+.PHONY: test-2
+test-2:
+	python2 ./tests/cPyparsing_test.py
+
+.PHONY: test-3
+test-3:
+	python3 ./tests/cPyparsing_test.py
 
 .PHONY: test-c
 test-c:

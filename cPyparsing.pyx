@@ -40,7 +40,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # automatically updated by constants.py prior to compilation
 __version__ = "2.2.0"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1043
+_WRAP_CALL_LINE_NUM = 1051
 
 #-----------------------------------------------------------------------------------------------------------------------
 # IMPORTS:
@@ -98,10 +98,11 @@ __all__ = [
     'CloseMatch', 'tokenMap', 'pyparsing_common',
 ]
 
+_MAX_INT = sys.maxsize
+
 system_version = tuple(sys.version_info)[:3]
 PY_3 = system_version[0] == 3
 if PY_3:
-    _MAX_INT = sys.maxsize
     basestring = str
     unichr = chr
     _ustr = str
@@ -110,28 +111,35 @@ if PY_3:
     singleArgBuiltins = [sum, len, sorted, reversed, list, tuple, set, any, all, min, max]
 
 else:
-    _MAX_INT = sys.maxsize
     range = xrange
 
-    def _ustr(obj):
-        """Drop-in replacement for str(obj) that tries to be Unicode friendly. It first tries
-           str(obj). If that fails with a UnicodeEncodeError, then it tries unicode(obj). It
-           then < returns the unicode object | encodes it with the default encoding | ... >.
-        """
+    _ustr = unicode
+    # def _ustr(obj):
+    #     """Drop-in replacement for str(obj) that tries to be Unicode friendly. It first tries
+    #        str(obj). If that fails with a UnicodeEncodeError, then it tries unicode(obj). It
+    #        then < returns the unicode object | encodes it with the default encoding | ... >.
+    #     """
+    #     if isinstance(obj, unicode):
+    #         return obj
+
+    #     try:
+    #         # If this works, then _ustr(obj) has the same behaviour as str(obj), so
+    #         # it won't break any existing code.
+    #         return str(obj)
+
+    #     except UnicodeEncodeError:
+    #         # Else encode it
+    #         ret = unicode(obj).encode(sys.getdefaultencoding(), 'xmlcharrefreplace')
+    #         xmlcharref = Regex(r'&#\d+;')
+    #         xmlcharref.setParseAction(lambda t: '\\u' + hex(int(t[0][2:-1]))[2:])
+    #         return xmlcharref.transformString(ret)
+
+    _repr = repr
+    def repr(obj):
         if isinstance(obj, unicode):
-            return obj
-
-        try:
-            # If this works, then _ustr(obj) has the same behaviour as str(obj), so
-            # it won't break any existing code.
-            return str(obj)
-
-        except UnicodeEncodeError:
-            # Else encode it
-            ret = unicode(obj).encode(sys.getdefaultencoding(), 'xmlcharrefreplace')
-            xmlcharref = Regex(r'&#\d+;')
-            xmlcharref.setParseAction(lambda t: '\\u' + hex(int(t[0][2:-1]))[2:])
-            return xmlcharref.transformString(ret)
+            return _repr(obj).lstrip("u")
+        else:
+            return _repr(obj)
 
     # build list of single arg builtins, tolerant of Python version, that can be used as parse actions
     singleArgBuiltins = []
@@ -1064,8 +1072,8 @@ def _trim_arity(func, maxargs=2):
     # copy func name to wrapper for sensible debug output
     func_name = "<parse action>"
     try:
-        func_name = getattr(func, '__name__',
-                            getattr(func, '__class__').__name__)
+        func_name = str(getattr(func, '__name__',
+                            getattr(func, '__class__').__name__))
     except Exception:
         func_name = str(func)
     wrapper.__name__ = func_name

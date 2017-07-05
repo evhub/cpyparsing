@@ -48,7 +48,7 @@ def update_file():
     """Update constants in main Cython file."""
 
     print("Updating " + file_name + " constants...")
-    with open(file_name, "r+") as f:
+    with open(file_name, "r") as f:
 
         wrap_call_line_num = None
         for i, line in enumerate(f):
@@ -73,6 +73,7 @@ def update_file():
                 line = "_WRAP_CALL_LINE_NUM = " + repr(wrap_call_line_num) + "\n"
             new_lines.append(line)
 
+    with open(file_name, "w") as f:
         f.seek(0)
         f.truncate()
         f.write("".join(new_lines))
