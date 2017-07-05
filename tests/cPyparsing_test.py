@@ -7,16 +7,18 @@
 # Copyright 2002-2016, Paul McGuire
 #
 #
+from __future__ import print_function, absolute_import, unicode_literals, division
+
 from unittest import TestCase, TestSuite, TextTestRunner
 import unittest
 import datetime
 import os.path
+import sys
+import functools
+from timeit import timeit
 
 from cPyparsing import ParseException
 #~ import HTMLTestRunner
-
-import sys
-import pdb
 
 PY_3 = sys.version.startswith('3')
 if PY_3:
@@ -3641,41 +3643,66 @@ def makeTestSuiteTemp(classes):
         suite.addTest( cls() )
     return suite
 
-console = False
-console = True
+# # console = False
+# console = True
 
-#~ from line_profiler import LineProfiler
-#~ from cPyparsing import ParseResults
-#~ lp = LineProfiler(ParseResults.__setitem__)
-lp = None
+# #~ from line_profiler import LineProfiler
+# #~ from cPyparsing import ParseResults
+# #~ lp = LineProfiler(ParseResults.__setitem__)
+# lp = None
 
-#~ if __name__ == '__main__':
-    #~ unittest.main()
-if console:
-    #~ # console mode
-    testRunner = TextTestRunner()
+# #~ if __name__ == '__main__':
+#     #~ unittest.main()
+# if console:
+#     #~ # console mode
+#     testRunner = TextTestRunner()
 
-    testclasses = []
-    # testclasses.append(put_test_class_here)
-    # testclasses.append(RequiredEachTest)
+#     testclasses = []
+#     # testclasses.append(put_test_class_here)
+#     # testclasses.append(RequiredEachTest)
 
-    if not testclasses:
-        testRunner.run( makeTestSuite() )
-    else:
-        BUFFER_OUTPUT = False
-        if lp is None:
-            testRunner.run( makeTestSuiteTemp(testclasses) )
-        else:
-            lp.run("testRunner.run( makeTestSuite(%s) )" % testclass.__name__)
-else:
-    # HTML mode
-    outfile = "testResults.html"
-    outstream = file(outfile,"w")
-    testRunner = HTMLTestRunner.HTMLTestRunner( stream=outstream )
-    testRunner.run( makeTestSuite() )
-    outstream.close()
+#     if not testclasses:
+#         testRunner.run( makeTestSuite() )
+#     else:
+#         global BUFFER_OUTPUT
+#         BUFFER_OUTPUT = False
+#         if lp is None:
+#             testRunner.run( makeTestSuiteTemp(testclasses) )
+#         else:
+#             lp.run("testRunner.run( makeTestSuite(%s) )" % testclass.__name__)
+# else:
+#     # HTML mode
+#     outfile = "testResults.html"
+#     outstream = file(outfile,"w")
+#     testRunner = HTMLTestRunner.HTMLTestRunner( stream=outstream )
+#     testRunner.run( makeTestSuite() )
+#     outstream.close()
 
-    import os
-    os.system(r'"C:\Program Files\Internet Explorer\iexplore.exe" file://' + outfile)
+#     import os
+#     os.system(r'"C:\Program Files\Internet Explorer\iexplore.exe" file://' + outfile)
 
-#~ lp.print_stats()
+# #~ lp.print_stats()
+
+def run():
+    """Test cPyparsing."""
+    test_runner = TextTestRunner()
+    test_classes = makeTestSuite()
+
+    test_runner.run(test_classes)
+
+def bench_func(func, n=10):
+    """Benchmark the given function."""
+    return timeit(func, number=n) / n
+
+bench_run = functools.partial(bench_func, run)
+
+def bench():
+    print("""
+
+=================================
+Average Time: %rs
+=================================
+""" % (bench_run(),))
+
+if __name__ == "__main__":
+    bench()
