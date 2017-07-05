@@ -17,18 +17,17 @@ Description: Installer for cPyparsing.
 
 from __future__ import print_function, absolute_import, unicode_literals, division
 
+import sys
+import os.path
 import setuptools
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from constants import (
+    version,
+    file_name,
+)
+
 from Cython.Build import cythonize
-
-#-----------------------------------------------------------------------------------------------------------------------
-# CONSTANTS:
-#-----------------------------------------------------------------------------------------------------------------------
-
-pyparsing_version = "2.2.0"
-development_version = "1"
-
-version = pyparsing_version + "-post" + development_version
 
 #-----------------------------------------------------------------------------------------------------------------------
 # SETUP:
@@ -36,7 +35,7 @@ version = pyparsing_version + "-post" + development_version
 
 setuptools.setup(
     ext_modules=cythonize(
-        "cPyparsing.pyx",
+        file_name,
         compiler_directives={
             "language_level": 3,
         },

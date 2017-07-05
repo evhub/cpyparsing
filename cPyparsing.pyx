@@ -37,19 +37,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # CONSTANTS:
 #-----------------------------------------------------------------------------------------------------------------------
 
-__version__ = "2.2.0"
-_FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE = (
-    "                ret = func(*args[limit:])\n"
-)
-
-_WRAP_CALL_LINE_NUM = None
-with open(_FILE_NAME, "r") as this_file:
-    for i, line in enumerate(this_file):
-        if line == _WRAP_CALL_LINE:
-            _WRAP_CALL_LINE_NUM = i + 1
-if _WRAP_CALL_LINE_NUM is None:
-    raise Exception("failed to load " + _FILE_NAME)
+# automatically updated by setup.py prior to compilation
+__version__ = '2.2.0'
+_FILE_NAME = 'cPyparsing.pyx'
+_WRAP_CALL_LINE_NUM = 1043
 
 #-----------------------------------------------------------------------------------------------------------------------
 # IMPORTS:
@@ -1048,7 +1039,7 @@ def _trim_arity(func, maxargs=2):
         nonlocal foundArity, limit
         while True:
             try:
-                # any changes to the following line must be reflected in _WRAP_CALL_LINE
+                # any changes to the following line must be reflected in wrap_call_line
                 ret = func(*args[limit:])
                 foundArity = True
                 return ret
