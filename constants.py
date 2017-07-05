@@ -26,7 +26,7 @@ import os.path
 pyparsing_version = "2.2.0"
 development_version = "1"
 
-wrap_call_line = "                ret = func(*args[limit:])\n"
+wrap_call_line = "                ret = func(*args[limit:])"
 
 file_name = "cPyparsing.pyx"
 
@@ -52,7 +52,7 @@ def update_file():
 
         wrap_call_line_num = None
         for i, line in enumerate(f):
-            if line == wrap_call_line:
+            if line.startswith(wrap_call_line):
                 wrap_call_line_num = i + 1
         if wrap_call_line_num is None:
             raise IOError("failed to find " + repr(wrap_call_line) + " in " + file_name)
