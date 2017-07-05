@@ -35,7 +35,7 @@ from Cython.Build import cythonize
 
 setuptools.setup(
     ext_modules=cythonize(
-        file_name,
+        str(file_name),
         compiler_directives={
             "language_level": 3,
         },

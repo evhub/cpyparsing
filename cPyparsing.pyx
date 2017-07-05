@@ -37,7 +37,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # CONSTANTS:
 #-----------------------------------------------------------------------------------------------------------------------
 
-# automatically updated by setup.py prior to compilation
+# automatically updated by constants.py prior to compilation
 __version__ = '2.2.0'
 _FILE_NAME = 'cPyparsing.pyx'
 _WRAP_CALL_LINE_NUM = 1043
