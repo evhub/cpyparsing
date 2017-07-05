@@ -1052,7 +1052,6 @@ def _trim_arity(func, maxargs=2):
                         tb = sys.exc_info()[-1]
                         tb_info = extract_tb(tb, limit=2)[-1]
                         if tb_info != tb_info_synth:
-                            print(tb_info, "!=", tb_info_synth)
                             raise
                     finally:
                         del tb
