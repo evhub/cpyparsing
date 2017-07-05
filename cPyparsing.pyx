@@ -40,7 +40,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # automatically updated by constants.py prior to compilation
 __version__ = "2.2.0"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1051
+_WRAP_CALL_LINE_NUM = 1052
 
 #-----------------------------------------------------------------------------------------------------------------------
 # IMPORTS:
@@ -99,6 +99,7 @@ __all__ = [
 ]
 
 _MAX_INT = sys.maxsize
+py_str = str
 
 system_version = tuple(sys.version_info)[:3]
 PY_3 = system_version[0] == 3
@@ -1072,11 +1073,11 @@ def _trim_arity(func, maxargs=2):
     # copy func name to wrapper for sensible debug output
     func_name = "<parse action>"
     try:
-        func_name = str(getattr(func, '__name__',
-                            getattr(func, '__class__').__name__))
+        func_name = getattr(func, '__name__',
+                            getattr(func, '__class__').__name__)
     except Exception:
         func_name = str(func)
-    wrapper.__name__ = func_name
+    wrapper.__name__ = py_str(func_name)
 
     return wrapper
 
