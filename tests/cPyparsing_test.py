@@ -3684,11 +3684,11 @@ def makeTestSuiteTemp(classes):
 # #~ lp.print_stats()
 
 def run():
-    """Test cPyparsing."""
+    """Test cPyparsing, returns whether testing was successful."""
     test_runner = TextTestRunner()
     test_classes = makeTestSuite()
 
-    test_runner.run(test_classes)
+    return test_runner.run(test_classes).wasSuccessful()
 
 def bench_func(func, n=10):
     """Benchmark the given function."""
@@ -3704,5 +3704,9 @@ Average Time: %rs
 =================================
 """ % (bench_run(),))
 
+def main():
+    success = run()
+    sys.exit(int(not success))
+
 if __name__ == "__main__":
-    run()
+    main()
