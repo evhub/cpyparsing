@@ -17,17 +17,27 @@ Description: Constants for cPyparsing.
 
 from __future__ import print_function, absolute_import, unicode_literals, division
 
+import os.path
+
 #-----------------------------------------------------------------------------------------------------------------------
-# CONSTANTS:
+# BASE CONSTANTS:
 #-----------------------------------------------------------------------------------------------------------------------
 
 pyparsing_version = "2.2.0"
 development_version = "1"
 
-version = pyparsing_version + "-post" + development_version
+wrap_call_line = "                ret = func(*args[limit:])\n"
 
 file_name = "cPyparsing.pyx"
-wrap_call_line = "                ret = func(*args[limit:])\n"
+
+#-----------------------------------------------------------------------------------------------------------------------
+# DERIVED CONSTANTS:
+#--------------------------------------------------------------------------
+
+version = pyparsing_version + "-post" + development_version
+
+base_name = os.path.splitext(file_name)[0]
+c_name = base_name + ".c"
 
 #-----------------------------------------------------------------------------------------------------------------------
 # UPDATE FILE:

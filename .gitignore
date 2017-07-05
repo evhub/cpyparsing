@@ -72,6 +72,3 @@ target/
 
 # MyPy
 .mypy_cache/
-
-# Cython
-*.c

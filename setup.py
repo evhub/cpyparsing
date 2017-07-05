@@ -25,25 +25,32 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from constants import (
     version,
     file_name,
+    base_name,
+    c_name,
 )
-
-from Cython.Build import cythonize
 
 #-----------------------------------------------------------------------------------------------------------------------
 # SETUP:
 #-----------------------------------------------------------------------------------------------------------------------
 
-setuptools.setup(
-    ext_modules=cythonize(
+try:
+    from Cython.Build import cythonize
+except ImportError:
+    ext_modules = [setuptools.Extension(base_name, [c_name])]
+else:
+    ext_modules = cythonize(
         str(file_name),
         compiler_directives={
             "language_level": 3,
         },
-    ),
+    )
+
+setuptools.setup(
+    name=base_name,
+    version=version,
+    ext_modules=ext_modules,
     packages=setuptools.find_packages(),
     include_package_data=True,
-    version=version,
-    name="cPyparsing",
     description="Cython implementation of PyParsing for use in Coconut.",
     url="https://github.com/evhub/cpyparsing",
     author="Evan Hubinger",
