@@ -4113,12 +4113,16 @@ class SkipTo(ParseElementEnhance):
         - sev: Minor
     """
 
-    def __init__(self, other, includeMatch=False, ignore=None, failOn=None):
+    def __init__(self, other, *args, **kwargs):  # include=False, ignore=None, failOn=None
         super(SkipTo, self).__init__(other)
-        self.ignoreExpr = ignore
+        # include is a reserved word, so we have to get creative to allow it as an argument
+        self.includeMatch, self.ignoreExpr, failOn = (
+            args[0] if len(args) >= 1 else kwargs.get("include", False),  # include=False
+            args[1] if len(args) >= 2 else kwargs.get("ignore", None),  # ignore=None
+            args[2] if len(args) >= 3 else kwargs.get("failOn", None),  # failOn=None
+        )
         self.mayReturnEmpty = True
         self.mayIndexError = False
-        self.includeMatch = includeMatch
         self.asList = False
         if isinstance(failOn, basestring):
             self.failOn = ParserElement._literalStringClass(failOn)

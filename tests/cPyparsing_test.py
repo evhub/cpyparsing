@@ -964,7 +964,7 @@ class SkipToParserTests(ParseTestCase):
         from cPyparsing import Literal, SkipTo, NotAny, cStyleComment, ParseBaseException
 
         thingToFind = Literal('working')
-        testExpr = SkipTo(Literal(';'), includeMatch=True, ignore=cStyleComment) + thingToFind
+        testExpr = SkipTo(Literal(';'), include=True, ignore=cStyleComment) + thingToFind
 
         def tryToParse (someText, fail_expected=False):
             try:
@@ -980,7 +980,7 @@ class SkipToParserTests(ParseTestCase):
         tryToParse('some text /* comment with ; in */some other stuff; working')
 
         # tests for optional failOn argument
-        testExpr = SkipTo(Literal(';'), includeMatch=True, ignore=cStyleComment, failOn='other') + thingToFind
+        testExpr = SkipTo(Literal(';'), include=True, ignore=cStyleComment, failOn='other') + thingToFind
         tryToParse('some text /* comment with ; in */; working')
         tryToParse('some text /* comment with ; in */some other stuff; working', fail_expected=True)
 
