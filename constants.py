@@ -48,7 +48,7 @@ def update_file():
     """Update constants in main Cython file."""
 
     print("Updating " + file_name + " constants...")
-    with open(file_name, "r") as f:
+    with open(file_name, "r+") as f:
 
         wrap_call_line_num = None
         for i, line in enumerate(f):
@@ -65,6 +65,7 @@ def update_file():
             if line.startswith("__version__ ="):
                 line = '__version__ = "' + pyparsing_version + '"\n'
                 if seen_version:
+                    f.truncate()
                     raise IOError("repeated __version__ in " + file_name)
                 seen_version = True
             elif line.startswith("_FILE_NAME ="):

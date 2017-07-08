@@ -42,6 +42,9 @@ else:
         str(file_name),
         compiler_directives={
             "language_level": 3,
+            "overflowcheck": True,
+            "cdivision": True,
+            "infer_types": True,
         },
     )
 
