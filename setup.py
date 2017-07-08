@@ -60,4 +60,8 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License",
         "Intended Audience :: Developers",
     ],
+    document_names={
+        "description": "README.md",
+        "license": "LICENSE.txt",
+    },
 )

@@ -640,13 +640,13 @@ class ParseResults(object):
         except KeyError:
             return ""
 
-        if name in self.__tokdict:
-            if name not in self.__accumNames:
-                return self.__tokdict[name][-1][0]
-            else:
-                return ParseResults([v[0] for v in self.__tokdict[name]])
-        else:
-            return ""
+        # if name in self.__tokdict:
+        #     if name not in self.__accumNames:
+        #         return self.__tokdict[name][-1][0]
+        #     else:
+        #         return ParseResults([v[0] for v in self.__tokdict[name]])
+        # else:
+        #     return ""
 
     def __add__(self, other):
         ret = self.copy()
@@ -4241,16 +4241,16 @@ class Forward(ParseElementEnhance):
         return self.__class__.__name__ + ": ..."
 
         # stubbed out for now - creates awful memory and perf issues
-        self._revertClass = self.__class__
-        self.__class__ = _ForwardNoRecurse
-        try:
-            if self.expr is not None:
-                retString = _ustr(self.expr)
-            else:
-                retString = "None"
-        finally:
-            self.__class__ = self._revertClass
-        return self.__class__.__name__ + ": " + retString
+        # self._revertClass = self.__class__
+        # self.__class__ = _ForwardNoRecurse
+        # try:
+        #     if self.expr is not None:
+        #         retString = _ustr(self.expr)
+        #     else:
+        #         retString = "None"
+        # finally:
+        #     self.__class__ = self._revertClass
+        # return self.__class__.__name__ + ": " + retString
 
     def copy(self):
         if self.expr is not None:

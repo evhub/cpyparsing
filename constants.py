@@ -34,7 +34,7 @@ file_name = "cPyparsing.pyx"
 # DERIVED CONSTANTS:
 #--------------------------------------------------------------------------
 
-version = pyparsing_version + "-post" + development_version
+version = pyparsing_version + "." + development_version
 
 base_name = os.path.splitext(file_name)[0]
 c_name = base_name + ".c"
