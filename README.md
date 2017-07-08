@@ -1,6 +1,6 @@
 # cPyparsing
 
-Cython implementation of PyParsing for use in Coconut.
+[Cython](http://cython.org/) implementation of [PyParsing](http://pyparsing.wikispaces.com/) for use in [Coconut](http://coconut-lang.org/).
 
 Just `pip install cpyparsing` then `import cPyparsing as pyparsing` or otherwise use `cPyparsing` however you would normally use `pyparsing`.
 
