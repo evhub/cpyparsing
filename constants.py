@@ -24,7 +24,7 @@ import os.path
 #-----------------------------------------------------------------------------------------------------------------------
 
 pyparsing_version = "2.2.0"
-development_version = "1.0.2"
+development_version = "1.1.0"
 
 wrap_call_line = "                ret = func(*args[limit:])"
 
