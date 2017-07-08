@@ -40,7 +40,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # automatically updated by constants.py prior to compilation
 __version__ = "2.2.0"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1052
+_WRAP_CALL_LINE_NUM = 1056
 
 #-----------------------------------------------------------------------------------------------------------------------
 # IMPORTS:
@@ -114,7 +114,18 @@ if PY_3:
 else:
     range = xrange
 
-    str = _ustr = unicode
+    _repr = repr
+    def repr(obj):
+        if isinstance(obj, unicode):
+            return _repr(obj).lstrip("u")
+        else:
+            return _repr(obj)
+
+    str = unicode
+    def _ustr(obj):
+        if isinstance(obj, py_str):
+            obj = obj.decode("utf8")
+        return unicode(obj)
     # def _ustr(obj):
     #     """Drop-in replacement for str(obj) that tries to be Unicode friendly. It first tries
     #        str(obj). If that fails with a UnicodeEncodeError, then it tries unicode(obj). It
@@ -134,13 +145,6 @@ else:
     #         xmlcharref = Regex(r'&#\d+;')
     #         xmlcharref.setParseAction(lambda t: '\\u' + hex(int(t[0][2:-1]))[2:])
     #         return xmlcharref.transformString(ret)
-
-    _repr = repr
-    def repr(obj):
-        if isinstance(obj, unicode):
-            return _repr(obj).lstrip("u")
-        else:
-            return _repr(obj)
 
     # build list of single arg builtins, tolerant of Python version, that can be used as parse actions
     singleArgBuiltins = []
