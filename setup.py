@@ -56,6 +56,7 @@ setuptools.setup(
         "tests",
     ]),
     include_package_data=True,
+    zip_safe=False,
     description="Cython implementation of PyParsing for use in Coconut.",
     url="https://github.com/evhub/cpyparsing",
     author="Evan Hubinger",
