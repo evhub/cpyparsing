@@ -27,6 +27,9 @@ clean:
 
 .PHONY: wipe
 wipe: clean
+	-pip uninstall cPyparsing
+	-pip3 uninstall cPyparsing
+	-pip2 uninstall cPyparsing
 	rm -rf *.egg-info
 
 .PHONY: upload
