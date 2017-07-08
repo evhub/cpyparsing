@@ -52,6 +52,9 @@ setuptools.setup(
     name=base_name,
     version=version,
     ext_modules=ext_modules,
+    packages=setuptools.find_packages(exclude=[
+        "tests",
+    ]),
     include_package_data=True,
     description="Cython implementation of PyParsing for use in Coconut.",
     url="https://github.com/evhub/cpyparsing",
@@ -62,8 +65,4 @@ setuptools.setup(
         "License :: OSI Approved :: Apache Software License",
         "Intended Audience :: Developers",
     ],
-    document_names={
-        "description": "README.md",
-        "license": "LICENSE.txt",
-    },
 )

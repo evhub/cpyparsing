@@ -13,8 +13,6 @@ install:
 - make install
 script:
 - make test
-before_deploy:
-- make install
 deploy:
   provider: pypi
   user: evhub-develop
