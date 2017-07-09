@@ -1,3 +1,4 @@
+global-include *.txt
 global-include *.md
 global-include *.py
 global-include *.pyx
