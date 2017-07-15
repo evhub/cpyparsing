@@ -4,6 +4,7 @@ notifications:
 sudo: false
 cache: pip
 python:
+- '2.6'
 - '2.7'
 - '3.3'
 - '3.4'

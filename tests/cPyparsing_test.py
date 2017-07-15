@@ -3127,7 +3127,7 @@ class TokenMapTest(ParseTestCase):
 class ParseFileTest(ParseTestCase):
     def runTest(self):
         from cPyparsing import pyparsing_common, OneOrMore
-        s = """
+        s = b"""
         123 456 789
         """
         input_file = StringIO(s)
