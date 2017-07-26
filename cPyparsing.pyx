@@ -186,7 +186,7 @@ class ParseBaseException(Exception):
     # Performance tuning: we construct a *lot* of these, so keep this
     # constructor as small and fast as possible
 
-    def __init__(self, pstr, loc=0, msg=None, elem=None):
+    def __init__(self, pstr, int loc=0, msg=None, elem=None):
         self.loc = loc
         if msg is None:
             self.msg = pstr
