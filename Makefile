@@ -62,24 +62,16 @@ test-3:
 
 .PHONY: test-c
 test-c:
-	pushd ./tests
-	make test-c
-	popd
+	pushd ./tests; make test-c; popd
 
 .PHONY: test-py
 test-py:
-	pushd ./tests
-	make test-py
-	popd
+	pushd ./tests; make test-py; popd
 
 .PHONY: test-coconut-py
 test-coconut-py:
-	pushd ./tests
-	make test-coconut-py
-	popd
+	pushd ./tests; make test-coconut-py; popd
 
 .PHONY: test-coconut-c
 test-coconut-c:
-	pushd ./tests
-	make test-coconut-c
-	popd
+	pushd ./tests; make test-coconut-c; popd
