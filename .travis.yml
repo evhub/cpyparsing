@@ -17,6 +17,8 @@ script:
 - make test
 deploy:
   provider: pypi
+  edge:
+    branch: v1.8.45
   user: evhub-develop
   password:
     secure: DlC4mEocyFZeAaHsgarsnhz7jGGpbGDRrsgva/PSqKTHuDwtRqCDujl+Rs6ZDnp+/Jwx3Hymtk6MlUpKjiJLCY1yhVu3JDs9b4pcHLCz5iawGtR07lChOiCW5iiHM0EouxjJfct698LPpV0J/LM1iWcYniLEtYbns5LfyUtH2+dD/NJqNUtwCrQMt9PU8b4Uhd21Bsk4Dji7j0uNpqesBZ4uyeBuAXt492N389wLk2CZQ32c897L7ifdhuZMzOaZ1DcsG3tLhmDsdhAqeY9c0GgBrpaKO1H7lkaEoA6vtMxms7WJ6XqSFyZUzDkilcegC5TryLXHX3CBNiv9uxMTvzM8Y2dLcdK2Qdgb+kWAeM2CpgRc5VI4/ecyHS1jGw91DBj4IrjRjhyaN0rPIHuRVjX/zhN0KnGFiUycJZsjaF1y+w1fJQkdHXY3JuiDa+y+BVqy1MYj+nJ1rd4K78SNSuCt1i8LNmW53+B+gmSLk7+uI+mNw0a4JJXySRYlP9ocmd9LR/mQGAeGuvcl/buOLmKnCQXmSpMaKQdKJyMaDEozhr2OUrywKXO1z1peGfK8vfPbVzuh9PHvdzKLi9boh1/VnP/t+t+pQZH83bpeeT+6RiAvLIHfTrZ2fB4ZWvKD23hj2mq2Mx59eTlOhi/2ZJUzwZkOrJzraiejV0xfR2k=
