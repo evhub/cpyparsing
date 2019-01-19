@@ -102,7 +102,7 @@ _MAX_INT = sys.maxsize
 py_str = str
 
 system_version = tuple(sys.version_info)[:3]
-PY_3 = system_version[0] == 3
+PY_3 = system_version >= (3,)
 if PY_3:
     basestring = str
     unichr = chr
