@@ -32,19 +32,21 @@ wipe: clean
 	-pip2 uninstall cPyparsing
 	rm -rf *.egg-info
 
-.PHONY: upload
-upload: install
+.PHONY: upload-current
+upload-current: install
 	pip install --upgrade twine
-	make upload-2
-	make upload-3
+	python setup.py sdist bdist_wheel
+	twine upload dist/*
 
 .PHONY: upload-2
-upload-2:
+upload-2: install-2
+	pip install --upgrade twine
 	python2 setup.py sdist bdist_wheel
 	twine upload dist/*
 
 .PHONY: upload-3
-upload-3:
+upload-3: install-3
+	pip install --upgrade twine
 	python3 setup.py sdist bdist_wheel
 	twine upload dist/*
 
