@@ -5,7 +5,7 @@
 #   Copyright, 2010, Paul McGuire
 #
 """
-http://www.ioccc.org/1996/august.hint
+https://www.ioccc.org/1996/august.hint
 
 The following is a description of the OC grammar:
 
@@ -70,7 +70,7 @@ The following is a description of the OC grammar:
     stars:		"*"*
 """
 
-from cPyparsing import *
+from pyparsing import *
 ParserElement.enablePackrat()
 
 LPAR,RPAR,LBRACK,RBRACK,LBRACE,RBRACE,SEMI,COMMA = map(Suppress, "()[]{};,")

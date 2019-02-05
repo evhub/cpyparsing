@@ -11,7 +11,7 @@ data = """\
     <td align=right width=80><font size=2 face="New Times Roman,Times,Serif">&nbsp;51.950&nbsp;</font></td>
     """
 
-from cPyparsing import *
+from pyparsing import *
 
 tdS,tdE = makeHTMLTags("TD")
 fontS,fontE = makeHTMLTags("FONT")

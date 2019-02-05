@@ -9,7 +9,7 @@
 #
 #
 
-from cPyparsing import *
+from pyparsing import *
 # sample string with enums and other stuff
 sample = '''
     stuff before

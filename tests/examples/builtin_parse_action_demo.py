@@ -5,7 +5,7 @@
 #  Simple example of using builtin functions as parse actions.
 #
 
-from cPyparsing import *
+from pyparsing import *
 
 integer = Word(nums).setParseAction(lambda t : int(t[0]))
 

@@ -5,8 +5,8 @@
 #  Copyright 2010, Paul McGuire
 #
 
-from cPyparsing import (Word, alphas, alphanums, Regex, Suppress, Forward,
-    Group, oneOf, ZeroOrMore, Optional, delimitedList, Keyword,
+from pyparsing import (Word, alphas, alphanums, Regex, Suppress, Forward,
+    Group, oneOf, ZeroOrMore, Optional, delimitedList,
     restOfLine, quotedString, Dict)
 
 ident = Word(alphas+"_",alphanums+"_").setName("identifier")
@@ -17,7 +17,7 @@ LBRACE,RBRACE,LBRACK,RBRACK,LPAR,RPAR,EQ,SEMI = map(Suppress,"{}[]()=;")
 kwds = """message required optional repeated enum extensions extends extend
           to package service rpc returns true false option import"""
 for kw in kwds.split():
-    exec("%s_ = Keyword('%s')" % (kw.upper(), kw))
+    exec("{0}_ = Keyword('{1}')".format(kw.upper(), kw))
 
 messageBody = Forward()
 

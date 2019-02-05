@@ -6,15 +6,14 @@
 #
 # Copyright 2004-2016, by Paul McGuire
 #
-from cPyparsing import Word
+from pyparsing import Word, pyparsing_unicode as ppu
 
 # define grammar
-alphas = ''.join(chr(x) for x in range(0x386, 0x3ce))
+alphas = ppu.Greek.alphas
 greet = Word(alphas) + ',' + Word(alphas) + '!'
 
 # input string
-hello = "Καλημέρα, κόσμε!".decode('utf-8')
+hello = "Καλημέρα, κόσμε!"
 
 # parse input string
-print(greet.parseString( hello ))
-
+print(greet.parseString(hello))

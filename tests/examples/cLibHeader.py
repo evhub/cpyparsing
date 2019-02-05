@@ -6,7 +6,7 @@
 # Copyright, 2012 - Paul McGuire
 #
 
-from cPyparsing import Word, alphas, alphanums, Combine, oneOf, Optional, delimitedList, Group, Keyword
+from pyparsing import Word, alphas, alphanums, Combine, oneOf, Optional, delimitedList, Group, Keyword
 
 testdata = """
   int func1(float *vec, int len, double arg1);

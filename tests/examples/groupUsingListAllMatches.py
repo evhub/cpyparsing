@@ -7,7 +7,7 @@
 #
 # Copyright 2004-2016, by Paul McGuire
 #
-from cPyparsing import Word, ZeroOrMore, nums
+from pyparsing import Word, ZeroOrMore, nums
 
 aExpr = Word("A", nums)
 bExpr = Word("B", nums)

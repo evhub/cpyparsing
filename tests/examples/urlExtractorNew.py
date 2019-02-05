@@ -1,7 +1,6 @@
 # URL extractor
 # Copyright 2004, Paul McGuire
-from cPyparsing import Literal,Suppress,CharsNotIn,CaselessLiteral,\
-        Word,dblQuotedString,alphanums,SkipTo,makeHTMLTags
+from pyparsing import SkipTo, makeHTMLTags
 import urllib.request, urllib.parse, urllib.error
 import pprint
 
@@ -15,7 +14,7 @@ linkOpenTag,linkCloseTag = makeHTMLTags("a")
 link = linkOpenTag + SkipTo(linkCloseTag)("body") + linkCloseTag.suppress()
 
 # Go get some HTML with some links in it.
-serverListPage = urllib.request.urlopen( "http://www.google.com" )
+serverListPage = urllib.request.urlopen( "https://www.google.com/" )
 htmlText = serverListPage.read()
 serverListPage.close()
 
@@ -28,8 +27,5 @@ for toks,strt,end in link.scanString(htmlText):
 # Create dictionary from list comprehension, assembled from each pair of tokens returned
 # from a matched URL.
 pprint.pprint(
-    dict( [ (toks.body,toks.startA.href) for toks,strt,end in link.scanString(htmlText) ] )
+    {  toks.body:toks.startA.href for toks,strt,end in link.scanString(htmlText)  }
     )
-
-
-

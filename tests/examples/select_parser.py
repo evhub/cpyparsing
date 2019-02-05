@@ -2,9 +2,9 @@
 # Copyright 2010, Paul McGuire
 #
 # a simple SELECT statement parser, taken from SQLite's SELECT statement
-# definition at http://www.sqlite.org/lang_select.html
+# definition at https://www.sqlite.org/lang_select.html
 #
-from cPyparsing import *
+from pyparsing import *
 ParserElement.enablePackrat()
 
 LPAR,RPAR,COMMA = map(Suppress,"(),")
@@ -101,7 +101,7 @@ result_column = "*" | table_name + "." + "*" | Group(expr + Optional(Optional(AS
 select_core = (SELECT + Optional(DISTINCT | ALL) + Group(delimitedList(result_column))("columns") +
                 Optional(FROM + join_source("from*")) +
                 Optional(WHERE + expr("where_expr")) +
-                Optional(GROUP + BY + Group(delimitedList(ordering_term)("group_by_terms")) +
+                Optional(GROUP + BY + Group(delimitedList(ordering_term))("group_by_terms") +
                         Optional(HAVING + expr("having_expr"))))
 
 select_stmt << (select_core + ZeroOrMore(compound_operator + select_core) +
@@ -121,6 +121,7 @@ tests = """\
     select a, db.table.b as BBB from db.table where 1=1 and BBB='yes'
     select a, db.table.b as BBB from test_table,db.table where 1=1 and BBB='yes'
     select a, db.table.b as BBB from test_table,db.table where 1=1 and BBB='yes' limit 50
+    select a, b from test_table where (1=1 or 2=3) and b='yes' group by zx having b=2 order by 1
     """
 
 select_stmt.runTests(tests)

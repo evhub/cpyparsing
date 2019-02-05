@@ -57,11 +57,10 @@ Usage: To process LA equations embedded in source files, import this module and
 
 """
 
-import re,os,sys
-from cPyparsing import Word, alphas, ParseException, Literal, CaselessLiteral \
-, Combine, Optional, nums, Or, Forward, OneOrMore, ZeroOrMore, \
-  FollowedBy, StringStart, StringEnd, alphanums
-import math
+import re,sys
+from pyparsing import Word, alphas, ParseException, Literal, CaselessLiteral \
+, Combine, Optional, nums, Forward, ZeroOrMore, \
+  StringEnd, alphanums
 
 # Debugging flag can be set to either "debug_flag=True" or "debug_flag=False"
 debug_flag=False
@@ -405,7 +404,7 @@ if __name__ == '__main__':
     else:
       try:
         print(parse(input_string))
-      except:
+      except Exception:
         pass
 
     # obtain new input string
@@ -413,5 +412,3 @@ if __name__ == '__main__':
 
   # if user types 'quit' then say goodbye
   print("Good bye!")
-
-

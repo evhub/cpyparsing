@@ -4,7 +4,7 @@
 # Updated 2012 - latest pyparsing API
 #
 
-from cPyparsing import *
+from pyparsing import *
 import random
 import string
 
@@ -66,7 +66,7 @@ class Room(object):
                 is_form = "are"
             else:
                 is_form = "is"
-            print("There %s %s here." % (is_form, enumerateItems(visibleItems)))
+            print("There {0} {1} here.".format(is_form, enumerateItems(visibleItems)))
         else:
             print("You see %s." % (enumerateItems(visibleItems)))
 

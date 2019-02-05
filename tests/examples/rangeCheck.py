@@ -8,7 +8,7 @@
 # Copyright 2011,2015 Paul T. McGuire
 #
 
-from cPyparsing import Word, nums, Suppress, ParseException, empty, Optional
+from pyparsing import Word, nums, Suppress, Optional
 from datetime import datetime
 
 def ranged_value(expr, minval=None, maxval=None):
@@ -26,7 +26,7 @@ def ranged_value(expr, minval=None, maxval=None):
     outOfRangeMessage = {
         (True, False)  : "value is greater than %s" % maxval,
         (False, True)  : "value is less than %s" % minval,
-        (False, False) : "value is not in the range (%s to %s)" % (minval,maxval),
+        (False, False) : "value is not in the range ({0} to {1})".format(minval,maxval),
         }[minval is None, maxval is None]
 
     return expr().addCondition(inRangeCondition, message=outOfRangeMessage)
@@ -58,5 +58,3 @@ dateExpr.runTests("""
     2004/2/29
     2004/2
     1999/12/31""")
-
-

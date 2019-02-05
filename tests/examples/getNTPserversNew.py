@@ -6,7 +6,7 @@
 # Copyright 2004-2010, by Paul McGuire
 # September, 2010 - updated to more current use of setResultsName, new NIST URL
 #
-from cPyparsing import (Word, Combine, Suppress, SkipTo, nums, makeHTMLTags,
+from pyparsing import (Word, Combine, SkipTo, nums, makeHTMLTags,
                         delimitedList, alphas, alphanums)
 try:
     import urllib.request
@@ -24,12 +24,12 @@ timeServerPattern =  (tdStart + hostname("hostname") + tdEnd +
                       tdStart + SkipTo(tdEnd)("loc") + tdEnd)
 
 # get list of time servers
-nistTimeServerURL = "http://tf.nist.gov/tf-cgi/servers.cgi#"
+nistTimeServerURL = "https://tf.nist.gov/tf-cgi/servers.cgi#"
 serverListPage = urlopen( nistTimeServerURL )
 serverListHTML = serverListPage.read().decode("UTF-8")
 serverListPage.close()
 
 addrs = {}
 for srvr,startloc,endloc in timeServerPattern.scanString( serverListHTML ):
-    print("%s (%s) - %s" % (srvr.ipAddr, srvr.hostname.strip(), srvr.loc.strip()))
+    print("{0} ({1}) - {2}".format(srvr.ipAddr, srvr.hostname.strip(), srvr.loc.strip()))
     addrs[srvr.ipAddr] = srvr.loc

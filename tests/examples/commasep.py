@@ -9,7 +9,7 @@
 # Copyright (c) 2004-2016, Paul McGuire
 #
 
-from cPyparsing import commaSeparatedList
+from pyparsing import commaSeparatedList
 
 testData = [
     "a,b,c,100.2,,3",

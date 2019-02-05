@@ -43,7 +43,7 @@ lease 192.168.0.239 {
 }
 """
 
-from cPyparsing import *
+from pyparsing import *
 import datetime,time
 
 LBRACE,RBRACE,SEMI,QUOTE = map(Suppress,'{};"')

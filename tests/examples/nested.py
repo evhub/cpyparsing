@@ -6,8 +6,7 @@
 #  paired delimiters for grouping lists and sublists
 #
 
-from cPyparsing import *
-import pprint
+from pyparsing import *
 
 data = """
 {
@@ -27,4 +26,3 @@ print(( (nestedItems+stringEnd).parseString(data).asList() ))
 # use default delimiters of ()'s
 mathExpr = nestedExpr()
 print(( mathExpr.parseString( "((( ax + by)*C) *(Z | (E^F) & D))") ))
-

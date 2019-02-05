@@ -7,7 +7,7 @@
 # Copyright 2006, by Paul McGuire
 #
 
-from cPyparsing import *
+from pyparsing import *
 
 integer = Word(nums).setParseAction(lambda t:int(t[0]))
 variable = Word(alphas,exact=1)
@@ -64,4 +64,3 @@ for t in test:
     print(t)
     print(expr.parseString(t))
     print('')
-

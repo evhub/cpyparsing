@@ -8,7 +8,7 @@
 # Updated to use indentedBlock helper method.
 #
 
-from cPyparsing import *
+from pyparsing import *
 
 data = """\
 def A(z):
@@ -51,4 +51,3 @@ module_body = OneOrMore(stmt)
 print(data)
 parseTree = module_body.parseString(data)
 parseTree.pprint()
-

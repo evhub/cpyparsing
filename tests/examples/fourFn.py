@@ -9,8 +9,8 @@
 #
 # Copyright 2003-2009 by Paul McGuire
 #
-from cPyparsing import Literal,CaselessLiteral,Word,Group,Optional,\
-    ZeroOrMore,Forward,nums,alphas,alphanums,Regex,ParseException,\
+from pyparsing import Literal,Word,Group,\
+    ZeroOrMore,Forward,alphas,alphanums,Regex,ParseException,\
     CaselessKeyword, Suppress
 import math
 import operator
@@ -116,7 +116,7 @@ if __name__ == "__main__":
         try:
             results = BNF().parseString( s, parseAll=True )
             val = evaluateStack( exprStack[:] )
-        except ParseException as e:
+        except ParseException as pe:
             print(s, "failed parse:", str(pe))
         except Exception as e:
             print(s, "failed eval:", str(e))

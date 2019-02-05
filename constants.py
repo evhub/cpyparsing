@@ -18,15 +18,16 @@ Description: Constants for cPyparsing.
 from __future__ import print_function, absolute_import, unicode_literals, division
 
 import os.path
+from io import open
 
 #-----------------------------------------------------------------------------------------------------------------------
 # BASE CONSTANTS:
 #-----------------------------------------------------------------------------------------------------------------------
 
-pyparsing_version = "2.2.0"
-development_version = "1.1.2"
+pyparsing_version = "2.3.2"
+development_version = "0.0.1"
 
-wrap_call_line = "                ret = func(*args[limit:])"
+wrap_call_line = "                ret = func(*args[limit[0]:])"
 
 file_name = "cPyparsing.pyx"
 
@@ -48,7 +49,7 @@ def update_file():
     """Update constants in main Cython file."""
 
     print("Updating " + file_name + " constants...")
-    with open(file_name, "r+") as f:
+    with open(file_name, "r+", encoding="utf-8") as f:
 
         wrap_call_line_num = None
         for i, line in enumerate(f):
@@ -74,7 +75,7 @@ def update_file():
                 line = "_WRAP_CALL_LINE_NUM = " + repr(wrap_call_line_num) + "\n"
             new_lines.append(line)
 
-    with open(file_name, "w") as f:
+    with open(file_name, "w", encoding="utf-8") as f:
         f.seek(0)
         f.truncate()
         f.write("".join(new_lines))

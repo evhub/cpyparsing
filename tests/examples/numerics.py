@@ -46,7 +46,7 @@ tests = """\
 4,294,967,295.000
 """
 
-from cPyparsing import Regex
+from pyparsing import Regex
 
 comma_decimal = Regex(r'\d{1,2}(([ .])\d\d\d(\2\d\d\d)*)?,\d*')
 comma_decimal.setParseAction(lambda t: float(t[0].replace(' ','').replace('.','').replace(',','.')))

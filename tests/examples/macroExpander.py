@@ -12,7 +12,7 @@
 #
 # Copyright 2007 by Paul McGuire
 #
-from cPyparsing import *
+from pyparsing import *
 
 # define the structure of a macro definition (the empty term is used
 # to advance to the next non-whitespace character)

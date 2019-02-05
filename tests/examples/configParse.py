@@ -6,7 +6,7 @@
 # Copyright (c) 2003, Paul McGuire
 #
 
-from cPyparsing import \
+from pyparsing import \
         Literal, Word, ZeroOrMore, Group, Dict, Optional, \
         printables, ParseException, restOfLine, empty
 import pprint
@@ -69,4 +69,3 @@ if __name__ == "__main__":
 	print("ini['Startup']['modemid'] =", ini['Startup']['modemid'])
 	print("ini.Startup =", ini.Startup)
 	print("ini.Startup.modemid =", ini.Startup.modemid)
-

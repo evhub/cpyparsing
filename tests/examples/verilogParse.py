@@ -19,8 +19,8 @@
 #
 # If you find this software to be useful, please make a donation to one
 # of the following charities:
-# - the Red Cross (http://www.redcross.org)
-# - Hospice Austin (http://www.hospiceaustin.org)
+# - the Red Cross (https://www.redcross.org/)
+# - Hospice Austin (https://www.hospiceaustin.org/)
 #
 #    DISCLAIMER:
 #    THIS SOFTWARE IS PROVIDED BY PAUL T. McGUIRE ``AS IS'' AND ANY EXPRESS OR
@@ -61,42 +61,28 @@
 #           for udpInstance.
 #   1.0.11 - Fixed bug in inst_args, content alternatives were reversed
 #
-import pdb
 import time
 import pprint
 import sys
 
 __version__ = "1.0.11"
 
-from cPyparsing import Literal, CaselessLiteral, Keyword, Word, OneOrMore, ZeroOrMore, \
-        Forward, NotAny, delimitedList, Group, Optional, Combine, alphas, nums, restOfLine, cStyleComment, \
-        alphanums, printables, dblQuotedString, empty, ParseException, ParseResults, MatchFirst, oneOf, GoToColumn, \
-        ParseResults,StringEnd, FollowedBy, ParserElement, And, Regex, cppStyleComment#,__version__
-import cPyparsing as pyparsing
+from pyparsing import Literal, Keyword, Word, OneOrMore, ZeroOrMore, \
+        Forward, delimitedList, Group, Optional, Combine, alphas, nums, restOfLine, \
+        alphanums, dblQuotedString, empty, ParseException, oneOf, \
+        StringEnd, FollowedBy, ParserElement, Regex, cppStyleComment
+import pyparsing
 usePackrat = False
-usePsyco = False
 
 packratOn = False
-psycoOn = False
 
 if usePackrat:
     try:
         ParserElement.enablePackrat()
-    except:
+    except Exception:
         pass
     else:
         packratOn = True
-
-# comment out this section to disable psyco function compilation
-if usePsyco:
-    try:
-        import psyco
-        psyco.full()
-    except:
-        print("failed to import psyco Python optimizer")
-    else:
-        psycoOn = True
-
 
 def dumpTokens(s,l,t):
     import pprint
@@ -638,7 +624,6 @@ else:
         print(" - using pyparsing version", pyparsing.__version__)
         print(" - using Python version", sys.version)
         if packratOn: print(" - using packrat parsing")
-        if psycoOn: print(" - using psyco runtime optimization")
         print()
 
         import os

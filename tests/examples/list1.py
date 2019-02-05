@@ -5,7 +5,7 @@
 #
 # Copyright (c) 2006-2016, Paul McGuire
 #
-from cPyparsing import *
+from pyparsing import *
 
 # first pass
 lbrack = Literal("[")

@@ -15,7 +15,7 @@ class Shape(object):
         raise NotImplementedException()
 
     def __str__(self):
-        return "<%s>: %s" % (self.__class__.__name__, self.__dict__)
+        return "<{0}>: {1}".format(self.__class__.__name__, self.__dict__)
 
 class Square(Shape):
     def area(self):
@@ -30,7 +30,7 @@ class Circle(Shape):
         return 3.14159 * self.radius**2
 
 
-from cPyparsing import *
+from pyparsing import *
 
 number = Regex(r'-?\d+(\.\d*)?').setParseAction(lambda t:float(t[0]))
 

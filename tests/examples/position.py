@@ -1,4 +1,4 @@
-from cPyparsing import *
+from pyparsing import *
 
 text = """Lorem ipsum dolor sit amet, consectetur adipisicing
 elit, sed do eiusmod tempor incididunt ut labore et dolore magna
@@ -51,5 +51,3 @@ for ivowelInfo in (initialConsWord | locateInitialVowels).searchString(text):
     if not ivowelInfo:
         continue
     print(ivowelInfo.locn, ':', ivowelInfo.word)
-
-

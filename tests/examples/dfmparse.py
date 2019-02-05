@@ -8,9 +8,9 @@ __version__ = "1.0"
 __author__ = "Daniel 'Dang' Griffith <pythondev - dang at lazytwinacres . net>"
 
 
-from cPyparsing import Literal, CaselessLiteral, Word, delimitedList \
+from pyparsing import Literal, CaselessLiteral, Word, delimitedList \
     , Optional, Combine, Group, alphas, nums, alphanums, Forward \
-    , oneOf, sglQuotedString, OneOrMore, ZeroOrMore, CharsNotIn
+    , oneOf, OneOrMore, ZeroOrMore, CharsNotIn
 
 
 # This converts DFM character constants into Python string (unicode) values.
@@ -161,7 +161,7 @@ def main(testfiles=None, action=printer):
         try:
             retval[f] = object_definition.parseFile(f)
             success += 1
-        except:
+        except Exception:
             failures.append(f)
 
     if failures:

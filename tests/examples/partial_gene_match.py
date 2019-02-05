@@ -3,7 +3,7 @@
 #  Example showing how to create a customized pyparsing Token, in this case,
 #  one that is very much like Literal, but which tolerates up to 'n' character
 #  mismatches
-from cPyparsing import *
+from pyparsing import *
 
 import urllib.request, urllib.parse, urllib.error
 

@@ -7,7 +7,7 @@
 #
 # Copyright 2015, Paul McGuire
 #
-from cPyparsing import col,Word,Optional,alphas,nums,ParseException
+from pyparsing import col,Word,Optional,alphas,nums
 
 table = """\
          1         2

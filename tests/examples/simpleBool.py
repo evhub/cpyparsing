@@ -12,7 +12,7 @@
 # Copyright 2006, by Paul McGuire
 # Updated 2013-Sep-14 - improved Python 2/3 cross-compatibility
 #
-from cPyparsing import infixNotation, opAssoc, Keyword, Word, alphas
+from pyparsing import infixNotation, opAssoc, Keyword, Word, alphas
 
 # define classes to be built at parse time, as each matching
 # expression type is parsed
@@ -98,5 +98,3 @@ if __name__ == "__main__":
         res = boolExpr.parseString(t)[0]
         success = "PASS" if bool(res) == expected else "FAIL"
         print (t,'\n', res, '=', bool(res),'\n', success, '\n')
-
-

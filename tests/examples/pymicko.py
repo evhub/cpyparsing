@@ -15,10 +15,10 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 #
-#    A copy of the GNU General Public License can be found at <http://www.gnu.org/licenses/>.
+#    A copy of the GNU General Public License can be found at <https://www.gnu.org/licenses/>.
 
-from cPyparsing import *
-from sys import stdin, stdout, stderr, argv, exit
+from pyparsing import *
+from sys import stdin, argv, exit
 
 #defines debug level
 # 0 - no debug
@@ -524,7 +524,7 @@ class CodeGenerator(object):
     """Class for code generation methods."""
 
     #dictionary of relational operators
-    RELATIONAL_DICT = dict([op,i] for i, op in enumerate(SharedData.RELATIONAL_OPERATORS))
+    RELATIONAL_DICT = {op:i for i, op in enumerate(SharedData.RELATIONAL_OPERATORS)}
     #conditional jumps for relational operators
     CONDITIONAL_JUMPS = ["JLTS", "JGTS", "JLES", "JGES", "JEQ ", "JNE ",
                          "JLTU", "JGTU", "JLEU", "JGEU", "JEQ ", "JNE "]
@@ -616,10 +616,10 @@ class CodeGenerator(object):
         sym = self.symtab.table[index]
         #local variables are located at negative offset from frame pointer register
         if sym.kind == SharedData.KINDS.LOCAL_VAR:
-            return "-{0}(%14)".format(sym.attribute * 4 + 4)
+            return "-{0}(1:%14)".format(sym.attribute * 4 + 4)
         #parameters are located at positive offset from frame pointer register
         elif sym.kind == SharedData.KINDS.PARAMETER:
-            return "{0}(%14)".format(8 + sym.attribute * 4)
+            return "{0}(1:%14)".format(8 + sym.attribute * 4)
         elif sym.kind == SharedData.KINDS.CONSTANT:
             return "${0}".format(sym.name)
         else:
@@ -772,7 +772,7 @@ class CodeGenerator(object):
     def function_body(self):
         """Inserts a local variable initialization and body label"""
         if self.shared.function_vars > 0:
-            const = self.symtab.insert_constant("{0}".format(self.shared.function_vars * 4), SharedData.TYPES.UNSIGNED)
+            const = self.symtab.insert_constant("0{}".format(self.shared.function_vars * 4), SharedData.TYPES.UNSIGNED)
             self.arithmetic("-", "%15", const, "%15")
         self.newline_label(self.shared.function_name + "_body", True, True)
 

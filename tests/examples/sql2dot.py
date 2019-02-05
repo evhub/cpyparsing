@@ -5,7 +5,7 @@
 #  Creates table graphics by parsing SQL table DML commands and
 #  generating DOT language output.
 #
-#  Adapted from a post at http://energyblog.blogspot.com/2006/04/blog-post_20.html.
+#  Adapted from a post at https://energyblog.blogspot.com/2006/04/blog-post_20.html.
 #
 sampleSQL = """
 create table student
@@ -47,9 +47,9 @@ alter table only student_registrations
     (class_id) references classes(class_id);
 """.upper()
 
-from cPyparsing import Literal, CaselessLiteral, Word, delimitedList \
-    ,Optional, Combine, Group, alphas, nums, alphanums, Forward \
-    , oneOf, sglQuotedString, OneOrMore, ZeroOrMore, CharsNotIn \
+from pyparsing import Literal, Word, delimitedList \
+    , alphas, alphanums \
+    , OneOrMore, ZeroOrMore, CharsNotIn \
     , replaceWith
 
 skobki = "(" + ZeroOrMore(CharsNotIn(")")) + ")"

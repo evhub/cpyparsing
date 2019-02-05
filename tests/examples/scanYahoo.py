@@ -1,7 +1,7 @@
-from cPyparsing import makeHTMLTags,SkipTo,htmlComment
+from pyparsing import makeHTMLTags,SkipTo,htmlComment
 import urllib.request, urllib.parse, urllib.error
 
-serverListPage = urllib.request.urlopen( "http://www.yahoo.com" )
+serverListPage = urllib.request.urlopen( "https://www.yahoo.com/" )
 htmlText = serverListPage.read()
 serverListPage.close()
 

@@ -10,7 +10,7 @@ Submitted by Matthew Brett, 2010
 Simplified BSD license
 """
 
-from cPyparsing import (Regex, Suppress, ZeroOrMore, Group, Optional, Forward,
+from pyparsing import (Regex, Suppress, ZeroOrMore, Group, Optional, Forward,
                        SkipTo, CaselessLiteral, Dict)
 
 

@@ -6,8 +6,7 @@
 #
 # Copyright (c) 2004, Paul McGuire
 #
-from cPyparsing import Literal, Word, Group, Dict, ZeroOrMore, alphas, nums, delimitedList, pyparsing_common
-import pprint
+from pyparsing import Literal, Word, Group, Dict, ZeroOrMore, alphas, nums, delimitedList, pyparsing_common as ppc
 
 testData = """
 +-------+------+------+------+------+------+------+------+------+
@@ -22,7 +21,7 @@ testData = """
 
 # define grammar for datatable
 underline = Word("-=")
-number = pyparsing_common.integer
+number = ppc.integer
 
 vert = Literal("|").suppress()
 

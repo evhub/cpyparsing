@@ -2,7 +2,7 @@
 # matchPreviousDemo.py
 #
 
-from cPyparsing import *
+from pyparsing import *
 
 src = """
 class a
