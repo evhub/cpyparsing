@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cPyparsing
-Version: 2.3.2.0.0.1
+Version: 2.3.2.1.0.0
 Summary: Cython implementation of PyParsing for use in Coconut.
 Home-page: https://github.com/evhub/cpyparsing
 Author: Evan Hubinger

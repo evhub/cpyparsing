@@ -25,7 +25,7 @@ from io import open
 #-----------------------------------------------------------------------------------------------------------------------
 
 pyparsing_version = "2.3.2"
-development_version = "0.0.1"
+development_version = "1.0.0"
 
 wrap_call_line = "                ret = func(*args[limit[0]:])"
 
