@@ -1,17 +1,17 @@
 .PHONY: install
-install:
+install: clean
 	pip install --upgrade pip setuptools cython
 	python ./constants.py
 	pip install --upgrade -e .
 
 .PHONY: install-2
-install-2:
+install-2: clean
 	pip2 install --upgrade pip setuptools cython
 	python2 ./constants.py
 	pip2 install --upgrade -e .
 
 .PHONY: install-3
-install-3:
+install-3: clean
 	pip3 install --upgrade pip setuptools cython
 	python3 ./constants.py
 	pip3 install --upgrade -e .
@@ -19,11 +19,11 @@ install-3:
 .PHONY: clean
 clean:
 	rm -rf ./dist ./build
-	find . -name '*.pyc' -delete
-	find . -name '*.c' -delete
-	find . -name '*.so' -delete
-	find . -name '*.pyd' -delete
-	find . -name '__pycache__' -delete
+	-find . -name '*.pyc' -delete
+	-find . -name '*.c' -delete
+	-find . -name '*.so' -delete
+	-find . -name '*.pyd' -delete
+	-find . -name '__pycache__' -delete
 
 .PHONY: wipe
 wipe: clean
