@@ -38,18 +38,6 @@ upload-current: install
 	python setup.py sdist bdist_wheel
 	twine upload dist/*
 
-.PHONY: upload-2
-upload-2: install-2
-	pip install --upgrade twine
-	python2 setup.py sdist bdist_wheel
-	twine upload dist/*
-
-.PHONY: upload-3
-upload-3: install-3
-	pip install --upgrade twine
-	python3 setup.py sdist bdist_wheel
-	twine upload dist/*
-
 .PHONY: test
 test:
 	python ./tests/cPyparsing_test.py
