@@ -49,6 +49,9 @@ namedStateMachine = (pp.Keyword("statemachine") + ident("name") + ":"
 
 
 def expand_state_definition(source, loc, tokens):
+    """
+    Parse action to convert statemachine to corresponding Python classes and methods
+    """
     indent = " " * (pp.col(loc, source) - 1)
     statedef = []
 
@@ -66,9 +69,11 @@ def expand_state_definition(source, loc, tokens):
         "class %s(object):" % baseStateClass,
         "    def __str__(self):",
         "        return self.__class__.__name__",
+
         "    @classmethod",
         "    def states(cls):",
         "        return list(cls.__subclasses__())",
+
         "    def next_state(self):",
         "        return self._next_state_class()",
     ])
@@ -85,6 +90,8 @@ def expand_state_definition(source, loc, tokens):
         "        self._state = None",
 
         "    def initialize_state(self, init_state):",
+        "        if issubclass(init_state, {baseStateClass}):".format(baseStateClass=baseStateClass),
+        "            init_state = init_state()",
         "        self._state = init_state",
 
         "    @property",
@@ -100,12 +107,16 @@ def expand_state_definition(source, loc, tokens):
         "       return '{0}: {1}'.format(self.__class__.__name__, self._state)",
         ])
 
-    return indent + ("\n" + indent).join(statedef) + "\n"
+    return ("\n" + indent).join(statedef) + "\n"
 
 stateMachine.setParseAction(expand_state_definition)
 
 
 def expand_named_state_definition(source, loc, tokens):
+    """
+    Parse action to convert statemachine with named transitions to corresponding Python
+    classes and methods
+    """
     indent = " " * (pp.col(loc, source) - 1)
     statedef = []
     # build list of states and transitions
@@ -142,28 +153,28 @@ def expand_named_state_definition(source, loc, tokens):
     statedef.extend("{tn_name}.transitionName = '{tn_name}'".format(tn_name=tn)
                     for tn in transitions)
 
-    statedef.extend([
-        "from statemachine import InvalidTransitionException as BaseTransitionException",
-        "class InvalidTransitionException(BaseTransitionException): pass",
-    ])
-
     # define base class for state classes
     statedef.extend([
         "class %s(object):" % baseStateClass,
+        "    from statemachine import InvalidTransitionException as BaseTransitionException",
+        "    class InvalidTransitionException(BaseTransitionException): pass",
         "    def __str__(self):",
         "        return self.__class__.__name__",
+
         "    @classmethod",
         "    def states(cls):",
         "        return list(cls.__subclasses__())",
+
         "    @classmethod",
         "    def next_state(cls, name):",
         "        try:",
         "            return cls.tnmap[name]()",
         "        except KeyError:",
-        "            raise InvalidTransitionException('%s does not support transition %r'% (cls.__name__, name))",
+        "            raise cls.InvalidTransitionException('%s does not support transition %r'% (cls.__name__, name))",
+
         "    def __bad_tn(name):",
         "        def _fn(cls):",
-        "            raise InvalidTransitionException('%s does not support transition %r'% (cls.__name__, name))",
+        "            raise cls.InvalidTransitionException('%s does not support transition %r'% (cls.__name__, name))",
         "        _fn.__name__ = name",
         "        return _fn",
     ])
@@ -194,12 +205,15 @@ def expand_named_state_definition(source, loc, tokens):
         )
     ])
 
+    # define <state>Mixin class for application classes that delegate to the state
     statedef.extend([
         "class {baseStateClass}Mixin:".format(baseStateClass=baseStateClass),
         "    def __init__(self):",
         "        self._state = None",
 
         "    def initialize_state(self, init_state):",
+        "        if issubclass(init_state, {baseStateClass}):".format(baseStateClass=baseStateClass),
+        "            init_state = init_state()",
         "        self._state = init_state",
 
         "    @property",
@@ -209,16 +223,19 @@ def expand_named_state_definition(source, loc, tokens):
         "    # get behavior/properties from current state",
         "    def __getattr__(self, attrname):",
         "        attr = getattr(self._state, attrname)",
-        "        if attrname in {baseStateClass}.transition_names:".format(baseStateClass=baseStateClass),
-        "            return lambda x=self: setattr(x, '_state', attr())",
         "        return attr",
 
         "    def __str__(self):",
-        "       return '{0}: {1}'.format(self.__class__.__name__, self._state)"
+        "       return '{0}: {1}'.format(self.__class__.__name__, self._state)",
+
     ])
 
-
-    return indent + ("\n" + indent).join(statedef) + "\n"
+    # define transition methods to be delegated to the _state instance variable
+    statedef.extend(
+        "    def {tn_name}(self): self._state = self._state.{tn_name}()".format(tn_name=tn)
+        for tn in transitions
+    )
+    return ("\n" + indent).join(statedef) + "\n"
 
 namedStateMachine.setParseAction(expand_named_state_definition)
 

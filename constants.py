@@ -19,13 +19,14 @@ from __future__ import print_function, absolute_import, unicode_literals, divisi
 
 import os.path
 from io import open
+from datetime import datetime
 
 #-----------------------------------------------------------------------------------------------------------------------
 # BASE CONSTANTS:
 #-----------------------------------------------------------------------------------------------------------------------
 
-pyparsing_version = "2.4.0"
-development_version = "1.0.0"
+pyparsing_version = "2.4.5"
+development_version = "0.0.1"
 
 wrap_call_line = "                ret = func(*args[limit[0]:])"
 
@@ -39,6 +40,8 @@ version = pyparsing_version + "." + development_version
 
 base_name = os.path.splitext(file_name)[0]
 c_name = base_name + ".c"
+
+version_time = datetime.utcnow().strftime("%d %b %Y %X")[:-3] + " UTC"
 
 #-----------------------------------------------------------------------------------------------------------------------
 # UPDATE FILE:
@@ -68,6 +71,8 @@ def update_file():
                     f.truncate()
                     raise IOError("repeated __version__ in " + file_name)
                 seen_version = True
+            elif line.startswith("__versionTime__ ="):
+                line = '__versionTime__ = "' + version_time + '"\n'
             elif line.startswith("_FILE_NAME ="):
                 line = '_FILE_NAME = "' + file_name + '"\n'
             elif line.startswith("_WRAP_CALL_LINE_NUM ="):
