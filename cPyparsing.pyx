@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.5"
-__versionTime__ = "06 Dec 2019 08:03 UTC"
+__versionTime__ = "06 Dec 2019 08:13 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1258
 
@@ -3808,7 +3808,8 @@ class ParseExpression(ParserElement):
             exprs = list(exprs)
             # if sequence of strings provided, wrap with Literal
             if any(isinstance(expr, basestring) for expr in exprs):
-                exprs = (self._literalStringClass(e) if isinstance(e, basestring) else e for e in exprs)
+                # [CPYPARSING] use map not iterator
+                exprs = map(lambda e: self._literalStringClass(e) if isinstance(e, basestring) else e, exprs)
             self.exprs = list(exprs)
         else:
             try:

@@ -1,3 +1,6 @@
+.PHONY: all
+all: install test
+
 .PHONY: install
 install: clean
 	pip install --upgrade pip setuptools cython
