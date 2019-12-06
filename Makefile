@@ -1,5 +1,11 @@
-.PHONY: all
-all: install test
+.PHONY: full-test
+full-test: install test
+
+.PHONY: full-test-2
+full-test-2: install test-2
+
+.PHONY: full-test-3
+full-test-3: install test-3
 
 .PHONY: install
 install: clean

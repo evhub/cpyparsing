@@ -39,9 +39,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.5"
-__versionTime__ = "06 Dec 2019 08:13 UTC"
+__versionTime__ = "06 Dec 2019 08:46 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1258
+_WRAP_CALL_LINE_NUM = 1263
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -163,11 +163,12 @@ __all__ = ['__version__', '__versionTime__', '__author__', '__compat__', '__diag
            'stringStart', 'traceParseAction', 'unicodeString', 'upcaseTokens', 'withAttribute',
            'indentedBlock', 'originalTextFor', 'ungroup', 'infixNotation', 'locatedExpr', 'withClass',
            'CloseMatch', 'tokenMap', 'pyparsing_common', 'pyparsing_unicode', 'unicode_set',
-           'conditionAsParseAction', 're',
+           'conditionAsParseAction', 're'
            ]
 
-# [CPYPARSING] py_str
+# [CPYPARSING] store python builtins
 py_str = str
+py_repr = repr
 
 system_version = tuple(sys.version_info)[:3]
 PY_3 = system_version[0] == 3
@@ -186,12 +187,11 @@ else:
     range = xrange
 
     # [CPYPARSING] repr logic
-    _repr = repr
     def repr(obj):
         if isinstance(obj, unicode):
-            return _repr(obj).lstrip("u")
+            return py_repr(obj).lstrip("u")
         else:
-            return _repr(obj)
+            return py_repr(obj)
 
     # [CPYPARSING] _ustr logic
     str = unicode
@@ -209,6 +209,10 @@ else:
             singleArgBuiltins.append(getattr(__builtin__, fname))
         except AttributeError:
             continue
+
+# [CPYPARSING] custom list_str
+def list_str(l):
+    return "[" + ", ".join(repr(x) for x in l) + "]"
 
 _generatorType = type((y for y in range(1)))
 
@@ -1193,7 +1197,8 @@ def _defaultStartDebugAction(instring, loc, expr):
     print(("Match " + _ustr(expr) + " at loc " + _ustr(loc) + "(%d,%d)" % (lineno(loc, instring), col(loc, instring))))
 
 def _defaultSuccessDebugAction(instring, startloc, endloc, expr, toks):
-    print("Matched " + _ustr(expr) + " -> " + str(toks.asList()))
+    # [CPYPARSING] use custom list_str
+    print("Matched " + _ustr(expr) + " -> " + list_str(toks.asList()))
 
 def _defaultExceptionDebugAction(instring, loc, expr, exc):
     print("Exception raised:" + _ustr(exc))
