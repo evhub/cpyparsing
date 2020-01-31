@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.5"
-__versionTime__ = "06 Dec 2019 08:46 UTC"
+__versionTime__ = "31 Jan 2020 21:41 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1263
 
