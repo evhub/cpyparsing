@@ -26,11 +26,15 @@ from datetime import datetime
 #-----------------------------------------------------------------------------------------------------------------------
 
 pyparsing_version = "2.4.5"
-development_version = "0.1.1"
+development_version = "0.1.2"
 
 wrap_call_line = "                ret = func(*args[limit[0]:])"
 
 file_name = "cPyparsing.pyx"
+
+requirements = [
+    "cython>=0.29.21",
+]
 
 #-----------------------------------------------------------------------------------------------------------------------
 # DERIVED CONSTANTS:
@@ -66,7 +70,7 @@ def update_file():
         seen_version = False
         for line in f:
             if line.startswith("__version__ ="):
-                line = '__version__ = "' + pyparsing_version + '"\n'
+                line = '__version__ = "' + version + '"\n'
                 if seen_version:
                     f.truncate()
                     raise IOError("repeated __version__ in " + file_name)

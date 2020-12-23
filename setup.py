@@ -27,6 +27,7 @@ from constants import (
     file_name,
     base_name,
     c_name,
+    requirements,
 )
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -40,6 +41,7 @@ except ImportError:
 else:
     ext_modules = cythonize(
         str(file_name),
+        force=True,
         compiler_directives={
             "language_level": 3,
             "overflowcheck": True,
@@ -55,9 +57,7 @@ setuptools.setup(
     packages=setuptools.find_packages(exclude=[
         "tests",
     ]),
-    setup_requires=[
-        "cython",
-    ],
+    setup_requires=requirements,
     include_package_data=True,
     zip_safe=False,
     description="Cython implementation of PyParsing for use in Coconut.",
