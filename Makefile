@@ -9,19 +9,19 @@ full-test-3: install test-3
 
 .PHONY: install
 install: clean
-	pip install --upgrade pip setuptools cython
+	pip install --upgrade pip setuptools wheel cython
 	python ./constants.py
 	pip install --upgrade -e .
 
 .PHONY: install-2
 install-2: clean
-	pip2 install --upgrade pip setuptools cython
+	pip2 install --upgrade pip setuptools wheel cython
 	python2 ./constants.py
 	pip2 install --upgrade -e .
 
 .PHONY: install-3
 install-3: clean
-	pip3 install --upgrade pip setuptools cython
+	pip3 install --upgrade pip setuptools wheel cython
 	python3 ./constants.py
 	pip3 install --upgrade -e .
 
