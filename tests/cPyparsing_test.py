@@ -20,8 +20,9 @@ TEST_DIR = os.path.dirname(__file__)
 sys.path.insert(0, TEST_DIR)
 MOCK_DIR = os.path.join(TEST_DIR, "mock_c_as_py")
 sys.path.insert(0, MOCK_DIR)
-from pyparsing import ParseException
 import pyparsing as pp
+from pyparsing import ParseException
+from pyparsing import pyparsing_test as ppt
 
 # [CPYPARSING] properly handle Python version independence
 PY_3 = sys.version.startswith('3')
@@ -77,7 +78,7 @@ class AutoReset(object):
 
 BUFFER_OUTPUT = True
 
-class ParseTestCase(TestCase):
+class ParseTestCase(ppt.TestParseResultsAsserts, TestCase):
     def __init__(self):
         super(ParseTestCase, self).__init__(methodName='_runTest')
         self.expect_traceback = False
@@ -94,7 +95,8 @@ class ParseTestCase(TestCase):
                         sys.stdout = buffered_stdout
                         sys.stderr = buffered_stdout
                     print_(">>>> Starting test",str(self))
-                    self.runTest()
+                    with ppt.reset_pyparsing_context():
+                        self.runTest()
 
                 finally:
                     print_("<<<< End of test",str(self))
@@ -2840,14 +2842,28 @@ class OptionalEachTest(ParseTestCase):
     def runTest1(self):
         from pyparsing import Optional, Keyword
 
-        the_input = "Major Tal Weiss"
-        parser1 = (Optional('Tal') + Optional('Weiss')) & Keyword('Major')
-        parser2 = Optional(Optional('Tal') + Optional('Weiss')) & Keyword('Major')
-        p1res = parser1.parseString( the_input)
-        p2res = parser2.parseString( the_input)
-        self.assertEqual(p1res.asList(), p2res.asList(),
-                         "Each failed to match with nested Optionals, "
-                         + str(p1res.asList()) + " should match " + str(p2res.asList()))
+        for the_input in [
+            "Tal Weiss Major",
+            "Tal Major",
+            "Weiss Major",
+            "Major",
+            "Major Tal",
+            "Major Weiss",
+            "Major Tal Weiss",
+        ]:
+            print_(the_input)
+            parser1 = (Optional("Tal") + Optional("Weiss")) & Keyword("Major")
+            parser2 = Optional(Optional("Tal") + Optional("Weiss")) & Keyword("Major")
+            p1res = parser1.parseString(the_input)
+            p2res = parser2.parseString(the_input)
+            self.assertEqual(
+                p1res.asList(),
+                p2res.asList(),
+                "Each failed to match with nested Optionals, "
+                + str(p1res.asList())
+                + " should match "
+                + str(p2res.asList()),
+            )
 
     def runTest2(self):
         from pyparsing import Word, alphanums, OneOrMore, Group, Regex, Optional
@@ -2901,12 +2917,34 @@ class OptionalEachTest(ParseTestCase):
             42
             """)
 
+    def testParseExpressionsWithRegex(self):
+        from itertools import product
+        match_empty_regex = pp.Regex(r"[a-z]*")
+        match_nonempty_regex = pp.Regex(r"[a-z]+")
+
+        parser_classes = pp.ParseExpression.__subclasses__()
+        test_string = "abc def"
+        expected = ["abc"]
+        for expr, cls in product((match_nonempty_regex, match_empty_regex), parser_classes):
+            print_(expr, cls)
+            parser = cls([expr])
+            parsed_result = parser.parseString(test_string)
+            print_(parsed_result.dump())
+            self.assertParseResultsEquals(parsed_result, expected)
+
+        for expr, cls in product((match_nonempty_regex, match_empty_regex), (pp.MatchFirst, pp.Or)):
+            parser = cls([expr, expr])
+            print_(parser)
+            parsed_result = parser.parseString(test_string)
+            print_(parsed_result.dump())
+            self.assertParseResultsEquals(parsed_result, expected)
 
     def runTest(self):
         self.runTest1()
         self.runTest2()
         self.runTest3()
         self.runTest4()
+        self.testParseExpressionsWithRegex()
 
 class SumParseResultsTest(ParseTestCase):
     def runTest(self):
@@ -4730,6 +4768,27 @@ class UndesirableButCommonPracticesTest(ParseTestCase):
         """)
 
 
+class ChainedTernaryOperator(ParseTestCase):
+    def runTest(self):
+        import pyparsing as pp
+
+        TERNARY_INFIX = pp.infixNotation(
+            pp.pyparsing_common.integer, [
+                (("?", ":"), 3, pp.opAssoc.LEFT),
+        ])
+        self.assertParseAndCheckList(TERNARY_INFIX,
+                                     "1?1:0?1:0",
+                                     [[1, '?', 1, ':', 0, '?', 1, ':', 0]])
+
+        TERNARY_INFIX = pp.infixNotation(
+            pp.pyparsing_common.integer, [
+                (("?", ":"), 3, pp.opAssoc.RIGHT),
+        ])
+        self.assertParseAndCheckList(TERNARY_INFIX,
+                                     "1?1:0?1:0",
+                                     [[1, '?', 1, ':', [0, '?', 1, ':', 0]]])
+
+
 class MiscellaneousParserTests(ParseTestCase):
     def runTest(self):
         self.expect_warning = True
@@ -5000,6 +5059,7 @@ Average Time: %rs
 
 def main():
     success = run()
+    sys.stdout.flush()
     sys.exit(int(not success))
 
 if __name__ == "__main__":

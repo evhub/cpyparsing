@@ -26,13 +26,17 @@ install-3: clean
 	pip3 install --upgrade -e .
 
 .PHONY: clean
-clean:
+clean: prepare
 	rm -rf ./dist ./build
 	-find . -name '*.pyc' -delete
 	-find . -name '*.c' -delete
 	-find . -name '*.so' -delete
 	-find . -name '*.pyd' -delete
 	-find . -name '__pycache__' -delete
+
+.PHONY: prepare
+prepare:
+	-coconut --site-uninstall
 
 .PHONY: wipe
 wipe: clean
@@ -48,14 +52,17 @@ upload-current: install
 	twine upload dist/*
 
 .PHONY: test
+test: export COCONUT_PURE_PYTHON = TRUE
 test:
 	python ./tests/cPyparsing_test.py
 
 .PHONY: test-2
+test-2: export COCONUT_PURE_PYTHON = TRUE
 test-2:
 	python2 ./tests/cPyparsing_test.py
 
 .PHONY: test-3
+test-3: export COCONUT_PURE_PYTHON = TRUE
 test-3:
 	python3 ./tests/cPyparsing_test.py
 

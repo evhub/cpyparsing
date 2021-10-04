@@ -25,8 +25,8 @@ from datetime import datetime
 # BASE CONSTANTS:
 #-----------------------------------------------------------------------------------------------------------------------
 
-pyparsing_version = "2.4.5"
-development_version = "0.1.2"
+pyparsing_version = "2.4.7"
+development_version = "1.0.0"
 
 wrap_call_line = "                ret = func(*args[limit[0]:])"
 
