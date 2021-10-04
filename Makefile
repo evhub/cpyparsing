@@ -81,3 +81,7 @@ test-coconut-py:
 .PHONY: test-coconut-c
 test-coconut-c:
 	pushd ./tests; make test-coconut-c; popd
+
+.PHONY: build
+build:
+	python ./setup.py sdist bdist_wheel
