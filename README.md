@@ -1,6 +1,6 @@
 # cPyparsing
 
-[Cython](http://cython.org/) implementation of [PyParsing](http://pyparsing.wikispaces.com/) created for use in [Coconut](http://coconut-lang.org/) and [Undebt](https://github.com/Yelp/undebt).
+[Cython](http://cython.org/) implementation of [PyParsing](https://github.com/pyparsing/pyparsing) created for use in [Coconut](http://coconut-lang.org/) and [Undebt](https://github.com/Yelp/undebt).
 
 Just `pip install cpyparsing` then `import cPyparsing as pyparsing` or otherwise use `cPyparsing` however you would normally use `pyparsing`.
 
