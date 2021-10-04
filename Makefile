@@ -9,21 +9,21 @@ full-test-3: install test-3
 
 .PHONY: install
 install: clean
-	pip install --upgrade pip setuptools wheel cython
+	python -m pip install --upgrade pip setuptools wheel cython
 	python ./constants.py
-	pip install --upgrade -e .
+	python -m pip install --upgrade -e .
 
 .PHONY: install-2
 install-2: clean
-	pip2 install --upgrade pip setuptools wheel cython
+	python2 -m pip install --upgrade pip setuptools wheel cython
 	python2 ./constants.py
-	pip2 install --upgrade -e .
+	python2 -m pip install --upgrade -e .
 
 .PHONY: install-3
 install-3: clean
-	pip3 install --upgrade pip setuptools wheel cython
+	python3 -m pip install --upgrade pip setuptools wheel cython
 	python3 ./constants.py
-	pip3 install --upgrade -e .
+	python3 -m pip install --upgrade -e .
 
 .PHONY: clean
 clean: prepare
@@ -40,9 +40,9 @@ prepare:
 
 .PHONY: wipe
 wipe: clean
-	-pip uninstall cPyparsing
-	-pip3 uninstall cPyparsing
-	-pip2 uninstall cPyparsing
+	-python -m pip uninstall cPyparsing
+	-python3 -m pip uninstall cPyparsing
+	-python2 -m pip uninstall cPyparsing
 	rm -rf *.egg-info
 
 .PHONY: build
