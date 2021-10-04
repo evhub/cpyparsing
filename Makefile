@@ -45,10 +45,13 @@ wipe: clean
 	-pip2 uninstall cPyparsing
 	rm -rf *.egg-info
 
+.PHONY: build
+build:
+	python ./setup.py sdist bdist_wheel
+
 .PHONY: upload-current
-upload-current: install
+upload-current: install build
 	pip install --upgrade twine
-	python setup.py sdist bdist_wheel
 	twine upload dist/*
 
 .PHONY: test
@@ -81,7 +84,3 @@ test-coconut-py:
 .PHONY: test-coconut-c
 test-coconut-c:
 	pushd ./tests; make test-coconut-c; popd
-
-.PHONY: build
-build:
-	python ./setup.py sdist bdist_wheel

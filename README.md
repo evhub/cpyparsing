@@ -4,6 +4,6 @@
 
 Just `pip install cpyparsing` then `import cPyparsing as pyparsing` or otherwise use `cPyparsing` however you would normally use `pyparsing`.
 
-`cPyparsing` is currently only up-to-date with `pyparsing<3`.
+`cPyparsing` is currently only up-to-date with `pyparsing==2.4.7`—`cPyparsing` has no current plans to support any `pyparsing>=3` features.
 
  `cPyparsing` supports Python `2.6+` on the Python 2 branch and Python `3.3+` on the Python 3 branch.

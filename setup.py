@@ -61,6 +61,11 @@ setuptools.setup(
     include_package_data=True,
     zip_safe=False,
     description="Cython implementation of PyParsing for use in Coconut.",
+    long_description="""
+See cPyparsing's GitHub_ for more information.
+
+.. _GitHub: https://github.com/evhub/cpyparsing
+""",
     url="https://github.com/evhub/cpyparsing",
     author="Evan Hubinger",
     author_email="evanjhub@gmail.com",
@@ -80,5 +85,7 @@ setuptools.setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
 )
