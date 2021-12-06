@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.1.0.0"
-__versionTime__ = "04 Oct 2021 05:51 UTC"
+__version__ = "2.4.7.1.1.0"
+__versionTime__ = "06 Dec 2021 08:39 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1265
 
@@ -1717,6 +1717,8 @@ class ParserElement(object):
             self.set = types.MethodType(set, self)
             self.clear = types.MethodType(clear, self)
             self.__len__ = types.MethodType(cache_len, self)
+            # [CPYPARSING] add self.cache
+            self.cache = cache
 
     if _OrderedDict is not None:
         class _FifoCache(object):
@@ -1746,6 +1748,8 @@ class ParserElement(object):
                 self.set = types.MethodType(set, self)
                 self.clear = types.MethodType(clear, self)
                 self.__len__ = types.MethodType(cache_len, self)
+                # [CPYPARSING] add self.cache
+                self.cache = cache
 
     else:
         class _FifoCache(object):
@@ -1775,6 +1779,8 @@ class ParserElement(object):
                 self.set = types.MethodType(set, self)
                 self.clear = types.MethodType(clear, self)
                 self.__len__ = types.MethodType(cache_len, self)
+                # [CPYPARSING] add self.cache
+                self.cache = cache
 
     # argument cache for optimizing repeated calls when backtracking through recursive expressions
     packrat_cache = {} # this is set later by enabledPackrat(); this is here so that resetCache() doesn't fail

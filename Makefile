@@ -25,6 +25,10 @@ install-3: clean
 	python3 ./constants.py
 	python3 -m pip install --upgrade -e .
 
+.PHONY: prepare
+prepare:
+	-coconut --site-uninstall
+
 .PHONY: clean
 clean: prepare
 	rm -rf ./dist ./build
@@ -33,10 +37,6 @@ clean: prepare
 	-find . -name '*.so' -delete
 	-find . -name '*.pyd' -delete
 	-find . -name '__pycache__' -delete
-
-.PHONY: prepare
-prepare:
-	-coconut --site-uninstall
 
 .PHONY: wipe
 wipe: clean
