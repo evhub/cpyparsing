@@ -51,8 +51,8 @@ build:
 
 .PHONY: upload-current
 upload-current: install build
-	pip install --upgrade twine
-	twine upload dist/*
+	python -m pip install --upgrade twine
+	python -m twine upload dist/*
 
 .PHONY: test
 test: export COCONUT_PURE_PYTHON = TRUE
