@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.1.1.0"
-__versionTime__ = "07 Dec 2021 00:55 UTC"
+__version__ = "2.4.7.1.2.0"
+__versionTime__ = "04 Oct 2022 03:30 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1265
 
@@ -1786,12 +1786,15 @@ class ParserElement(object):
     packrat_cache = {} # this is set later by enabledPackrat(); this is here so that resetCache() doesn't fail
     packrat_cache_lock = RLock()
     packrat_cache_stats = [0, 0]
+    # [CPYPARSING] add packrat_context
+    packrat_context = []
 
     # this method gets repeatedly called during backtracking with the same arguments -
     # we can cache these arguments and save ourselves the trouble of re-parsing the contained expression
     def _parseCache(self, instring, loc, doActions=True, callPreParse=True):
         HIT, MISS = 0, 1
-        lookup = (self, instring, loc, callPreParse, doActions)
+        # [CPYPARSING] include packrat_context
+        lookup = (self, instring, loc, callPreParse, doActions, tuple(self.packrat_context))
         with ParserElement.packrat_cache_lock:
             cache = ParserElement.packrat_cache
             value = cache.get(lookup)
@@ -5019,11 +5022,6 @@ class Forward(ParseElementEnhance):
             return self.name
         if self.strRepr is not None:
             return self.strRepr
-
-        # Avoid infinite recursion by setting a temporary strRepr
-        self.strRepr = ": ..."
-
-        # Use the string repr
 
         # [CPYPARSING] return intermediate representation to avoid a massive performance hit
         self.strRepr = self.__class__.__name__ + ": ..."
