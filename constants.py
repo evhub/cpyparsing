@@ -25,6 +25,8 @@ from datetime import datetime
 # BASE CONSTANTS:
 #-----------------------------------------------------------------------------------------------------------------------
 
+# when releasing a new version, create a release on github
+#  and make upload-current on all platforms
 pyparsing_version = "2.4.7"
 development_version = "1.2.1"
 
