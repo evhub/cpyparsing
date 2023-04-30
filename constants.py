@@ -26,7 +26,7 @@ from datetime import datetime
 #-----------------------------------------------------------------------------------------------------------------------
 
 pyparsing_version = "2.4.7"
-development_version = "1.2.0"
+development_version = "1.2.1"
 
 wrap_call_line = "                ret = func(*args[limit[0]:])"
 

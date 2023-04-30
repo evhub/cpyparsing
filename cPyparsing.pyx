@@ -38,10 +38,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.1.2.0"
-__versionTime__ = "04 Apr 2023 20:49 UTC"
+__version__ = "2.4.7.1.2.1"
+__versionTime__ = "30 Apr 2023 05:00 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1265
+_WRAP_CALL_LINE_NUM = 1269
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -60,7 +60,11 @@ import copy
 import sys
 import warnings
 import re
-import sre_constants
+# [CPYPARSING] fix sre_constants deprecation
+if sys.version_info >= (3, 11):
+    sre_constants = re
+else:
+    import sre_constants
 import collections
 import pprint
 import traceback
