@@ -4,4 +4,5 @@ global-include *.py
 global-include *.pyx
 global-include *.c
 global-include *.html
+global-include *.pyi
 graft tests

@@ -1,58 +1,103 @@
 # -*- coding: utf-8 -*-
+# module pyparsing.py
+#
+# Copyright (c) 2003-2019  Paul T. McGuire
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
 
-#-----------------------------------------------------------------------------------------------------------------------
-# INFO:
-#-----------------------------------------------------------------------------------------------------------------------
-
+__doc__ = \
 """
-cPyparsing is an alternative implementation of pyparsing in Cython.
+pyparsing module - Classes and methods to define and execute parsing grammars
+=============================================================================
 
-cPyparsing is a module by Evan Hubinger released under the Apache 2.0 license.
+The pyparsing module is an alternative approach to creating and
+executing simple grammars, vs. the traditional lex/yacc approach, or the
+use of regular expressions.  With pyparsing, you don't need to learn
+a new syntax for defining grammars or matching expressions - the parsing
+module provides a library of classes that you use to construct the
+grammar directly in Python.
 
-cPyparsing is based on pyparsing; copyright notice included below:
+Here is a program to parse "Hello, World!" (or any greeting of the form
+``"<salutation>, <addressee>!"``), built up using :class:`Word`,
+:class:`Literal`, and :class:`And` elements
+(the :class:`'+'<ParserElement.__add__>` operators create :class:`And` expressions,
+and the strings are auto-converted to :class:`Literal` expressions)::
 
-Copyright (c) 2003-2019  Paul T. McGuire
+    from pyparsing import Word, alphas
 
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+    # define grammar of a greeting
+    greet = Word(alphas) + "," + Word(alphas) + "!"
 
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
+    hello = "Hello, World!"
+    print (hello, "->", greet.parseString(hello))
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+The program outputs the following::
+
+    Hello, World! -> ['Hello', ',', 'World', '!']
+
+The Python representation of the grammar is quite readable, owing to the
+self-explanatory class names, and the use of '+', '|' and '^' operators.
+
+The :class:`ParseResults` object returned from
+:class:`ParserElement.parseString` can be
+accessed as a nested list, a dictionary, or an object with named
+attributes.
+
+The pyparsing module handles some of the problems that are typically
+vexing when writing text parsers:
+
+  - extra or missing whitespace (the above program will also handle
+    "Hello,World!", "Hello  ,  World  !", etc.)
+  - quoted strings
+  - embedded comments
+
+
+Getting Started -
+-----------------
+Visit the classes :class:`ParserElement` and :class:`ParseResults` to
+see the base classes that most other pyparsing
+classes inherit from. Use the docstrings for examples of how to:
+
+ - construct literal match expressions from :class:`Literal` and
+   :class:`CaselessLiteral` classes
+ - construct character word-group expressions using the :class:`Word`
+   class
+ - see how to create repetitive expressions using :class:`ZeroOrMore`
+   and :class:`OneOrMore` classes
+ - use :class:`'+'<And>`, :class:`'|'<MatchFirst>`, :class:`'^'<Or>`,
+   and :class:`'&'<Each>` operators to combine simple expressions into
+   more complex ones
+ - associate names with your parsed results using
+   :class:`ParserElement.setResultsName`
+ - access the parsed data, which is returned as a :class:`ParseResults`
+   object
+ - find some helpful expression short-cuts like :class:`delimitedList`
+   and :class:`oneOf`
+ - find more useful common expressions in the :class:`pyparsing_common`
+   namespace class
 """
 
-#-----------------------------------------------------------------------------------------------------------------------
-# CONSTANTS:
-#-----------------------------------------------------------------------------------------------------------------------
-
-# [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.1.2.1"
-__versionTime__ = "20 May 2023 02:38 UTC"
-_FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1269
-
-# [CPYPARSING] author
-__author__ = "Evan Hubinger <evanjhub@gmail.com>"
-
-# [CPYPARSING] store python builtins
-py_str = str
-py_repr = repr
-
-#-----------------------------------------------------------------------------------------------------------------------
-# PYPARSING:
-#-----------------------------------------------------------------------------------------------------------------------
+__version__ = "2.4.7"
+__versionTime__ = "30 Mar 2020 00:43 UTC"
+__author__ = "Paul McGuire <ptmcg@users.sourceforge.net>"
 
 import string
 from weakref import ref as wkref
@@ -60,11 +105,7 @@ import copy
 import sys
 import warnings
 import re
-# [CPYPARSING] fix sre_constants deprecation
-if sys.version_info >= (3, 11):
-    sre_constants = re
-else:
-    import sre_constants
+import sre_constants
 import collections
 import pprint
 import traceback
@@ -192,19 +233,27 @@ else:
     _MAX_INT = sys.maxint
     range = xrange
 
-    # [CPYPARSING] repr logic
-    def repr(obj):
-        if isinstance(obj, unicode):
-            return py_repr(obj).lstrip("u")
-        else:
-            return py_repr(obj)
-
-    # [CPYPARSING] _ustr logic
-    str = unicode
     def _ustr(obj):
-        if isinstance(obj, py_str):
-            obj = obj.decode("utf8")
-        return unicode(obj)
+        """Drop-in replacement for str(obj) that tries to be Unicode
+        friendly. It first tries str(obj). If that fails with
+        a UnicodeEncodeError, then it tries unicode(obj). It then
+        < returns the unicode object | encodes it with the default
+        encoding | ... >.
+        """
+        if isinstance(obj, unicode):
+            return obj
+
+        try:
+            # If this works, then _ustr(obj) has the same behaviour as str(obj), so
+            # it won't break any existing code.
+            return str(obj)
+
+        except UnicodeEncodeError:
+            # Else encode it
+            ret = unicode(obj).encode(sys.getdefaultencoding(), 'xmlcharrefreplace')
+            xmlcharref = Regex(r'&#\d+;')
+            xmlcharref.setParseAction(lambda t: '\\u' + hex(int(t[0][2:-1]))[2:])
+            return xmlcharref.transformString(ret)
 
     # build list of single arg builtins, tolerant of Python version, that can be used as parse actions
     singleArgBuiltins = []
@@ -215,10 +264,6 @@ else:
             singleArgBuiltins.append(getattr(__builtin__, fname))
         except AttributeError:
             continue
-
-# [CPYPARSING] custom list_str
-def list_str(l):
-    return "[" + ", ".join(repr(x) for x in l) + "]"
 
 _generatorType = type((y for y in range(1)))
 
@@ -1203,8 +1248,7 @@ def _defaultStartDebugAction(instring, loc, expr):
     print(("Match " + _ustr(expr) + " at loc " + _ustr(loc) + "(%d,%d)" % (lineno(loc, instring), col(loc, instring))))
 
 def _defaultSuccessDebugAction(instring, startloc, endloc, expr, toks):
-    # [CPYPARSING] use custom list_str
-    print("Matched " + _ustr(expr) + " -> " + list_str(toks.asList()))
+    print("Matched " + _ustr(expr) + " -> " + str(toks.asList()))
 
 def _defaultExceptionDebugAction(instring, loc, expr, exc):
     print("Exception raised:" + _ustr(exc))
@@ -1260,8 +1304,11 @@ def _trim_arity(func, maxargs=2):
     # synthesize what would be returned by traceback.extract_stack at the call to
     # user's parse action 'func', so that we don't incur call penalty at parse time
 
-    # [CPYPARSING] use preprocessed constants
-    pa_call_line_synth = (_FILE_NAME, _WRAP_CALL_LINE_NUM)
+    LINE_DIFF = 6
+    # IF ANY CODE CHANGES, EVEN JUST COMMENTS OR BLANK LINES, BETWEEN THE NEXT LINE AND
+    # THE CALL TO FUNC INSIDE WRAPPER, LINE_DIFF MUST BE MODIFIED!!!!
+    this_line = extract_stack(limit=2)[-1]
+    pa_call_line_synth = (this_line[0], this_line[1] + LINE_DIFF)
 
     def wrapper(*args):
         while 1:
@@ -1296,9 +1343,7 @@ def _trim_arity(func, maxargs=2):
                             getattr(func, '__class__').__name__)
     except Exception:
         func_name = str(func)
-
-    # [CPYPARSING] apply py_str
-    wrapper.__name__ = py_str(func_name)
+    wrapper.__name__ = func_name
 
     return wrapper
 
@@ -1721,8 +1766,6 @@ class ParserElement(object):
             self.set = types.MethodType(set, self)
             self.clear = types.MethodType(clear, self)
             self.__len__ = types.MethodType(cache_len, self)
-            # [CPYPARSING] add self.cache
-            self.cache = cache
 
     if _OrderedDict is not None:
         class _FifoCache(object):
@@ -1752,8 +1795,6 @@ class ParserElement(object):
                 self.set = types.MethodType(set, self)
                 self.clear = types.MethodType(clear, self)
                 self.__len__ = types.MethodType(cache_len, self)
-                # [CPYPARSING] add self.cache
-                self.cache = cache
 
     else:
         class _FifoCache(object):
@@ -1783,22 +1824,17 @@ class ParserElement(object):
                 self.set = types.MethodType(set, self)
                 self.clear = types.MethodType(clear, self)
                 self.__len__ = types.MethodType(cache_len, self)
-                # [CPYPARSING] add self.cache
-                self.cache = cache
 
     # argument cache for optimizing repeated calls when backtracking through recursive expressions
     packrat_cache = {} # this is set later by enabledPackrat(); this is here so that resetCache() doesn't fail
     packrat_cache_lock = RLock()
     packrat_cache_stats = [0, 0]
-    # [CPYPARSING] add packrat_context
-    packrat_context = []
 
     # this method gets repeatedly called during backtracking with the same arguments -
     # we can cache these arguments and save ourselves the trouble of re-parsing the contained expression
     def _parseCache(self, instring, loc, doActions=True, callPreParse=True):
         HIT, MISS = 0, 1
-        # [CPYPARSING] include packrat_context
-        lookup = (self, instring, loc, callPreParse, doActions, tuple(self.packrat_context))
+        lookup = (self, instring, loc, callPreParse, doActions)
         with ParserElement.packrat_cache_lock:
             cache = ParserElement.packrat_cache
             value = cache.get(lookup)
@@ -3844,8 +3880,7 @@ class ParseExpression(ParserElement):
             exprs = list(exprs)
             # if sequence of strings provided, wrap with Literal
             if any(isinstance(expr, basestring) for expr in exprs):
-                # [CPYPARSING] use map not iterator
-                exprs = map(lambda e: self._literalStringClass(e) if isinstance(e, basestring) else e, exprs)
+                exprs = (self._literalStringClass(e) if isinstance(e, basestring) else e for e in exprs)
             self.exprs = list(exprs)
         else:
             try:
@@ -4890,16 +4925,12 @@ class SkipTo(ParseElementEnhance):
         - issue_num: 79
         - sev: Minor
     """
-    # [CPYPARSING] use kwargs to detect include
-    def __init__(self, other, ignore=None, failOn=None, **kwargs):
-        include_ = kwargs.get("include", False)  # include=False
-
+    def __init__(self, other, include=False, ignore=None, failOn=None):
         super(SkipTo, self).__init__(other)
         self.ignoreExpr = ignore
         self.mayReturnEmpty = True
         self.mayIndexError = False
-        # [CPYPARSING] include_
-        self.includeMatch = include_
+        self.includeMatch = include
         self.saveAsList = False
         if isinstance(failOn, basestring):
             self.failOn = self._literalStringClass(failOn)
@@ -5027,8 +5058,18 @@ class Forward(ParseElementEnhance):
         if self.strRepr is not None:
             return self.strRepr
 
-        # [CPYPARSING] return intermediate representation to avoid a massive performance hit
-        self.strRepr = self.__class__.__name__ + ": ..."
+        # Avoid infinite recursion by setting a temporary strRepr
+        self.strRepr = ": ..."
+
+        # Use the string representation of main expression.
+        retString = '...'
+        try:
+            if self.expr is not None:
+                retString = _ustr(self.expr)[:1000]
+            else:
+                retString = "None"
+        finally:
+            self.strRepr = self.__class__.__name__ + ": " + retString
         return self.strRepr
 
     def copy(self):
@@ -5831,82 +5872,76 @@ def makeXMLTags(tagStr):
     """
     return _makeTags(tagStr, True)
 
-# [CPYPARSING] withAttribute must be a class
-class BaseWithAttribute(object):
-    ANY_VALUE = object()
+def withAttribute(*args, **attrDict):
+    """Helper to create a validating parse action to be used with start
+    tags created with :class:`makeXMLTags` or
+    :class:`makeHTMLTags`. Use ``withAttribute`` to qualify
+    a starting tag with a required attribute value, to avoid false
+    matches on common tags such as ``<TD>`` or ``<DIV>``.
 
-    def __call__(self, *args, **attrDict):
-        """Helper to create a validating parse action to be used with start
-        tags created with :class:`makeXMLTags` or
-        :class:`makeHTMLTags`. Use ``withAttribute`` to qualify
-        a starting tag with a required attribute value, to avoid false
-        matches on common tags such as ``<TD>`` or ``<DIV>``.
+    Call ``withAttribute`` with a series of attribute names and
+    values. Specify the list of filter attributes names and values as:
 
-        Call ``withAttribute`` with a series of attribute names and
-        values. Specify the list of filter attributes names and values as:
+     - keyword arguments, as in ``(align="right")``, or
+     - as an explicit dict with ``**`` operator, when an attribute
+       name is also a Python reserved word, as in ``**{"class":"Customer", "align":"right"}``
+     - a list of name-value tuples, as in ``(("ns1:class", "Customer"), ("ns2:align", "right"))``
 
-         - keyword arguments, as in ``(align="right")``, or
-         - as an explicit dict with ``**`` operator, when an attribute
-           name is also a Python reserved word, as in ``**{"class":"Customer", "align":"right"}``
-         - a list of name-value tuples, as in ``(("ns1:class", "Customer"), ("ns2:align", "right"))``
+    For attribute names with a namespace prefix, you must use the second
+    form.  Attribute names are matched insensitive to upper/lower case.
 
-        For attribute names with a namespace prefix, you must use the second
-        form.  Attribute names are matched insensitive to upper/lower case.
+    If just testing for ``class`` (with or without a namespace), use
+    :class:`withClass`.
 
-        If just testing for ``class`` (with or without a namespace), use
-        :class:`withClass`.
+    To verify that the attribute exists, but without specifying a value,
+    pass ``withAttribute.ANY_VALUE`` as the value.
 
-        To verify that the attribute exists, but without specifying a value,
-        pass ``withAttribute.ANY_VALUE`` as the value.
+    Example::
 
-        Example::
+        html = '''
+            <div>
+            Some text
+            <div type="grid">1 4 0 1 0</div>
+            <div type="graph">1,3 2,3 1,1</div>
+            <div>this has no type</div>
+            </div>
 
-            html = '''
-                <div>
-                Some text
-                <div type="grid">1 4 0 1 0</div>
-                <div type="graph">1,3 2,3 1,1</div>
-                <div>this has no type</div>
-                </div>
+        '''
+        div,div_end = makeHTMLTags("div")
 
-            '''
-            div,div_end = makeHTMLTags("div")
+        # only match div tag having a type attribute with value "grid"
+        div_grid = div().setParseAction(withAttribute(type="grid"))
+        grid_expr = div_grid + SkipTo(div | div_end)("body")
+        for grid_header in grid_expr.searchString(html):
+            print(grid_header.body)
 
-            # only match div tag having a type attribute with value "grid"
-            div_grid = div().setParseAction(withAttribute(type="grid"))
-            grid_expr = div_grid + SkipTo(div | div_end)("body")
-            for grid_header in grid_expr.searchString(html):
-                print(grid_header.body)
+        # construct a match with any div tag having a type attribute, regardless of the value
+        div_any_type = div().setParseAction(withAttribute(type=withAttribute.ANY_VALUE))
+        div_expr = div_any_type + SkipTo(div | div_end)("body")
+        for div_header in div_expr.searchString(html):
+            print(div_header.body)
 
-            # construct a match with any div tag having a type attribute, regardless of the value
-            div_any_type = div().setParseAction(withAttribute(type=withAttribute.ANY_VALUE))
-            div_expr = div_any_type + SkipTo(div | div_end)("body")
-            for div_header in div_expr.searchString(html):
-                print(div_header.body)
+    prints::
 
-        prints::
+        1 4 0 1 0
 
-            1 4 0 1 0
-
-            1 4 0 1 0
-            1,3 2,3 1,1
-        """
-        if args:
-            attrs = args[:]
-        else:
-            attrs = attrDict.items()
-        attrs = [(k, v) for k, v in attrs]
-        def pa(s, l, tokens):
-            for attrName, attrValue in attrs:
-                if attrName not in tokens:
-                    raise ParseException(s, l, "no matching attribute " + attrName)
-                if attrValue != withAttribute.ANY_VALUE and tokens[attrName] != attrValue:
-                    raise ParseException(s, l, "attribute '%s' has value '%s', must be '%s'" %
-                                                (attrName, tokens[attrName], attrValue))
-        return pa
-
-# [CPYPARSING] set withAttribute
-withAttribute = BaseWithAttribute()
+        1 4 0 1 0
+        1,3 2,3 1,1
+    """
+    if args:
+        attrs = args[:]
+    else:
+        attrs = attrDict.items()
+    attrs = [(k, v) for k, v in attrs]
+    def pa(s, l, tokens):
+        for attrName, attrValue in attrs:
+            if attrName not in tokens:
+                raise ParseException(s, l, "no matching attribute " + attrName)
+            if attrValue != withAttribute.ANY_VALUE and tokens[attrName] != attrValue:
+                raise ParseException(s, l, "attribute '%s' has value '%s', must be '%s'" %
+                                            (attrName, tokens[attrName], attrValue))
+    return pa
+withAttribute.ANY_VALUE = object()
 
 def withClass(classname, namespace=''):
     """Simplified version of :class:`withAttribute` when
