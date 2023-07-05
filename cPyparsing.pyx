@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.1.2.1"
-__versionTime__ = "20 May 2023 02:38 UTC"
+__version__ = "2.4.7.2.0.0"
+__versionTime__ = "04 Jul 2023 23:55 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1269
 
@@ -1303,6 +1303,12 @@ def _trim_arity(func, maxargs=2):
     return wrapper
 
 
+# [CPYPARSING] HIT, MISS are constants
+HIT, MISS = 0, 1
+# [CPYPARSING] TRY, MATCH, FAIL are constants
+TRY, MATCH, FAIL = 0, 1, 2
+
+
 class ParserElement(object):
     """Abstract base level parser element class."""
     DEFAULT_WHITE_CHARS = " \n\t\r"
@@ -1600,7 +1606,7 @@ class ParserElement(object):
 
     # ~ @profile
     def _parseNoCache(self, instring, loc, doActions=True, callPreParse=True):
-        TRY, MATCH, FAIL = 0, 1, 2
+        # [CPYPARSING] TRY, MATCH, FAIL are constants
         debugging = (self.debug)  # and doActions)
 
         if debugging or self.failAction:
@@ -1796,7 +1802,7 @@ class ParserElement(object):
     # this method gets repeatedly called during backtracking with the same arguments -
     # we can cache these arguments and save ourselves the trouble of re-parsing the contained expression
     def _parseCache(self, instring, loc, doActions=True, callPreParse=True):
-        HIT, MISS = 0, 1
+        # [CPYPARSING] HIT, MISS are constants
         # [CPYPARSING] include packrat_context
         lookup = (self, instring, loc, callPreParse, doActions, tuple(self.packrat_context))
         with ParserElement.packrat_cache_lock:
@@ -1819,12 +1825,75 @@ class ParserElement(object):
                     raise value
                 return value[0], value[1].copy()
 
+    # [CPYPARSING] add _parseIncremental
+    def _parseIncremental(self, instring, loc, doActions=True, callPreParse=True):
+        """Version of ParserElement._parseCache that can reuse caches from substring parses."""
+        # determine the substrings to check for caches
+        prefixes = self._instringPrefixes.get(instring)
+        if prefixes is None:
+            prefixes = [instring]
+            for other_instring in self._instringPrefixes:
+                if instring.startswith(other_instring):
+                    prefixes.append(other_instring)
+            self._instringPrefixes[instring] = prefixes
+
+        with ParserElement.packrat_cache_lock:
+            cache = ParserElement.packrat_cache
+
+            # try to find a hit
+            for prefix in prefixes:
+                # skip non-instring prefixes when we're at the end of them,
+                #  since then the cache might be wrong
+                if loc >= len(prefix) and len(prefix) != len(instring):
+                    continue
+                lookup = (self, prefix, loc, callPreParse, doActions, tuple(self.packrat_context))
+                value = cache.get(lookup)
+                if value is not cache.not_in_cache:
+                    ParserElement.packrat_cache_stats[HIT] += 1
+                    if isinstance(value, Exception):
+                        raise value
+                    # if we found a successful parse, unlike _parseCache, we still
+                    #  need to actually run the parse actions since they might be greedy
+                    #  actions that need to actually be called in this parse
+                    return self._parseNoCache(instring, loc, doActions, callPreParse)
+
+            # otherwise do miss behavior
+            ParserElement.packrat_cache_stats[MISS] += 1
+            lookup = (self, instring, loc, callPreParse, doActions, tuple(self.packrat_context))
+            try:
+                value = self._parseNoCache(instring, loc, doActions, callPreParse)
+            except ParseBaseException as pe:
+                # cache a copy of the exception, without the traceback
+                cache.set(lookup, pe.__class__(*pe.args))
+                raise
+            else:
+                # cache a dummy here just to note that the parse was successful
+                cache.set(lookup, True)
+                return value
+
     _parse = _parseNoCache
 
     @staticmethod
     def resetCache():
+        # [CPYPARSING] don't reset in incremental mode
+        if ParserElement._incrementalEnabled:
+            return
         ParserElement.packrat_cache.clear()
         ParserElement.packrat_cache_stats[:] = [0] * len(ParserElement.packrat_cache_stats)
+
+    # [CPYPARSING] add enableIncremental
+    _incrementalEnabled = False
+    @staticmethod
+    def enableIncremental(cache_size_limit=None):
+        """Enable incremental parsing mode where caches from substring parses are reused."""
+        if not ParserElement._incrementalEnabled:
+            # Force reenable packrat to clear the cache and ensure we're using the correct cache_size_limit
+            ParserElement._packratEnabled = False
+            ParserElement.enablePackrat(cache_size_limit=cache_size_limit)
+
+            ParserElement._incrementalEnabled = True
+            ParserElement._instringPrefixes = {}
+            ParserElement._parse = ParserElement._parseIncremental
 
     _packratEnabled = False
     @staticmethod
