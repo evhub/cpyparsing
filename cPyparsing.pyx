@@ -39,9 +39,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.0.0"
-__versionTime__ = "04 Jul 2023 23:55 UTC"
+__versionTime__ = "05 Jul 2023 02:26 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1269
+_WRAP_CALL_LINE_NUM = 1278
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -254,6 +254,9 @@ def conditionAsParseAction(fn, message=None, fatal=False):
 
 class ParseBaseException(Exception):
     """base exception class for all parsing runtime exceptions"""
+    # [CPYPARSING] add slots
+    __slots__ = ("loc", "msg", "pstr", "parserElement", "args")
+
     # Performance tuning: we construct a *lot* of these, so keep this
     # constructor as small and fast as possible
     def __init__(self, pstr, loc=0, msg=None, elem=None):
@@ -337,6 +340,8 @@ class ParseException(ParseBaseException):
         column: 1
 
     """
+    # [CPYPARSING] add slots
+    __slots__ = ()
 
     @staticmethod
     def explain(exc, depth=16):
@@ -411,6 +416,8 @@ class ParseException(ParseBaseException):
 class ParseFatalException(ParseBaseException):
     """user-throwable exception thrown when inconsistent parse content
        is found; stops all parsing immediately"""
+    # [CPYPARSING] add slots
+    __slots__ = ()
     pass
 
 class ParseSyntaxException(ParseFatalException):
@@ -419,6 +426,8 @@ class ParseSyntaxException(ParseFatalException):
     that parsing is to stop immediately because an unbacktrackable
     syntax error has been found.
     """
+    # [CPYPARSING] add slots
+    __slots__ = ()
     pass
 
 #~ class ReparseException(ParseBaseException):
@@ -1827,48 +1836,60 @@ class ParserElement(object):
 
     # [CPYPARSING] add _parseIncremental
     def _parseIncremental(self, instring, loc, doActions=True, callPreParse=True):
-        """Version of ParserElement._parseCache that can reuse caches from substring parses."""
-        # determine the substrings to check for caches
-        prefixes = self._instringPrefixes.get(instring)
+        """Version of ParserElement._parseCache that can reuse caches from prefix parses."""
+        # determine the prefixes to check for caches
+        prefixes = self._instring_prefixes.get(instring)
         if prefixes is None:
             prefixes = [instring]
-            for other_instring in self._instringPrefixes:
+            for other_instring in self._instring_prefixes:
                 if instring.startswith(other_instring):
                     prefixes.append(other_instring)
-            self._instringPrefixes[instring] = prefixes
+            self._instring_prefixes[instring] = prefixes
 
         with ParserElement.packrat_cache_lock:
+            # update furthest loc
+            furthest_loc = max(ParserElement._furthest_locs.get(instring, 0), loc)
+            ParserElement._furthest_locs[instring] = furthest_loc
+
             cache = ParserElement.packrat_cache
 
             # try to find a hit
             for prefix in prefixes:
                 # skip non-instring prefixes when we're at the end of them,
-                #  since then the cache might be wrong
+                #  since we know they'll fail the check below
                 if loc >= len(prefix) and len(prefix) != len(instring):
                     continue
                 lookup = (self, prefix, loc, callPreParse, doActions, tuple(self.packrat_context))
-                value = cache.get(lookup)
-                if value is not cache.not_in_cache:
-                    ParserElement.packrat_cache_stats[HIT] += 1
-                    if isinstance(value, Exception):
-                        raise value
-                    # if we found a successful parse, unlike _parseCache, we still
-                    #  need to actually run the parse actions since they might be greedy
-                    #  actions that need to actually be called in this parse
-                    return self._parseNoCache(instring, loc, doActions, callPreParse)
+                cache_result = cache.get(lookup)
+                if cache_result is not cache.not_in_cache:
+                    cache_furthest_loc, cache_item = cache_result
+                    # don't use non-instring results that hit up against the end of the prefix
+                    if len(prefix) == len(instring) or cache_furthest_loc < len(prefix):
+                        ParserElement.packrat_cache_stats[HIT] += 1
+                        if cache_item is None:  # success
+                            # if we found a successful parse, unlike _parseCache, we still
+                            #  need to actually run the parse actions since they might be greedy
+                            #  actions that need to actually be called in this parse
+                            return self._parseNoCache(instring, loc, doActions, callPreParse)
+                        else:  # failure; cache_item is exception loc
+                            # unlike _parseCache, we don't cache the full exception,
+                            #  so we need to rebuild it here, which can make exceptions a bit wonky
+                            raise ParseException(instring, cache_item, self.errmsg, self)
 
             # otherwise do miss behavior
             ParserElement.packrat_cache_stats[MISS] += 1
             lookup = (self, instring, loc, callPreParse, doActions, tuple(self.packrat_context))
             try:
                 value = self._parseNoCache(instring, loc, doActions, callPreParse)
+            # _parseIncremental only caches the minimum necessary information to limit
+            #  the memory footprint of very large caches
             except ParseBaseException as pe:
-                # cache a copy of the exception, without the traceback
-                cache.set(lookup, pe.__class__(*pe.args))
+                # on failure, cache (furthest loc, exception loc)
+                cache.set(lookup, (furthest_loc, pe.loc))
                 raise
             else:
-                # cache a dummy here just to note that the parse was successful
-                cache.set(lookup, True)
+                # on success, cache (furthest loc, None)
+                cache.set(lookup, (furthest_loc, None))
                 return value
 
     _parse = _parseNoCache
@@ -1876,24 +1897,35 @@ class ParserElement(object):
     @staticmethod
     def resetCache():
         # [CPYPARSING] don't reset in incremental mode
-        if ParserElement._incrementalEnabled:
+        if ParserElement._incrementalEnabled and not ParserElement._incrementalWithResets:
             return
         ParserElement.packrat_cache.clear()
         ParserElement.packrat_cache_stats[:] = [0] * len(ParserElement.packrat_cache_stats)
+        # [CPYPARSING] reset incremental attributes
+        if ParserElement._incrementalEnabled:
+            ParserElement._instring_prefixes = {}
+            ParserElement._furthest_locs = {}
 
     # [CPYPARSING] add enableIncremental
     _incrementalEnabled = False
+    _incrementalWithResets = False
     @staticmethod
-    def enableIncremental(cache_size_limit=None):
-        """Enable incremental parsing mode where caches from substring parses are reused."""
+    def enableIncremental(cache_size_limit=None, still_reset_cache=False):
         if not ParserElement._incrementalEnabled:
+            ParserElement._incrementalEnabled = True
+
+            """Enable incremental parsing mode where caches from prefix parses are reused."""
             # Force reenable packrat to clear the cache and ensure we're using the correct cache_size_limit
             ParserElement._packratEnabled = False
             ParserElement.enablePackrat(cache_size_limit=cache_size_limit)
 
-            ParserElement._incrementalEnabled = True
-            ParserElement._instringPrefixes = {}
+            # forcibly reset the cache for incremental mode
+            ParserElement._incrementalWithResets = True
+            ParserElement.resetCache()
+
             ParserElement._parse = ParserElement._parseIncremental
+
+        ParserElement._incrementalWithResets = still_reset_cache
 
     _packratEnabled = False
     @staticmethod
