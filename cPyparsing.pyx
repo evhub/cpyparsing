@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.1.0"
-__versionTime__ = "06 Jul 2023 07:51 UTC"
+__version__ = "2.4.7.2.1.1"
+__versionTime__ = "06 Jul 2023 08:46 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1280
 
@@ -1851,8 +1851,7 @@ class ParserElement(object):
 
         with ParserElement.packrat_cache_lock:
             # update furthest loc
-            furthest_loc = max(ParserElement._furthest_locs.get(instring, 0), loc)
-            ParserElement._furthest_locs[instring] = furthest_loc
+            ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs.get(instring, 0), loc)
 
             cache = ParserElement.packrat_cache
 
@@ -1860,14 +1859,14 @@ class ParserElement(object):
             for prefix, prefix_len in prefixes:
                 # skip non-instring prefixes when we're at the end of them,
                 #  since we know they'll fail the check below
-                if loc >= prefix_len and prefix_len != len(instring):
+                if loc >= prefix_len - 1 and prefix_len != len(instring):
                     continue
                 lookup = (self, prefix, loc, callPreParse, doActions, tuple(self.packrat_context))
                 cache_result = cache.get(lookup)
                 if cache_result is not cache.not_in_cache:
                     cache_furthest_loc, cache_item = cache_result
                     # don't use non-instring results that hit up against the end of the prefix
-                    if prefix_len == len(instring) or cache_furthest_loc < prefix_len:
+                    if prefix_len == len(instring) or cache_furthest_loc < prefix_len - 1:
                         ParserElement.packrat_cache_stats[HIT] += 1
                         if cache_item is None:  # success
                             # if we found a successful parse, unlike _parseCache, we still
@@ -1883,17 +1882,27 @@ class ParserElement(object):
             ParserElement.packrat_cache_stats[MISS] += 1
             lookup = (self, instring, loc, callPreParse, doActions, tuple(self.packrat_context))
             try:
-                value = self._parseNoCache(instring, loc, doActions, callPreParse)
+                new_loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
             # _parseIncremental only caches the minimum necessary information to limit
             #  the memory footprint of very large caches
             except ParseBaseException as pe:
+                # Unfortunately, failed parses don't always update the loc on the ParseException
+                #  to the furthest point looked at; sometimes, they will do silent lookaheads,
+                #  which is something we can't really get around. Thus, we make the sketchy
+                #  assumption that no single parse element will look more than one line ahead.
+                next_linebreak_loc = instring.find("\n", max(loc, pe.loc))
+                if next_linebreak_loc < 0:
+                    next_linebreak_loc = len(instring) - 1
+                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], next_linebreak_loc)
                 # on failure, cache (furthest loc, exception loc)
-                cache.set(lookup, (furthest_loc, pe.loc))
+                cache.set(lookup, (ParserElement._furthest_locs[instring], pe.loc))
                 raise
             else:
+                # update furthest_loc
+                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
                 # on success, cache (furthest loc, None)
-                cache.set(lookup, (furthest_loc, None))
-                return value
+                cache.set(lookup, (ParserElement._furthest_locs[instring], None))
+                return new_loc, ret_toks
 
     _parse = _parseNoCache
 
@@ -1914,10 +1923,13 @@ class ParserElement(object):
     _incrementalWithResets = False
     @staticmethod
     def enableIncremental(cache_size_limit=None, still_reset_cache=False):
+        """Enable incremental parsing mode where caches from common prefix parses are reused.
+
+        Incremental mode does not fully preserve parse exception error messages and may produce
+        incorrect results if individual parse elements are looking more than one line ahead."""
         if not ParserElement._incrementalEnabled:
             ParserElement._incrementalEnabled = True
 
-            """Enable incremental parsing mode where caches from common prefix parses are reused."""
             # Force reenable packrat to clear the cache and ensure we're using the correct cache_size_limit
             ParserElement._packratEnabled = False
             ParserElement.enablePackrat(cache_size_limit=cache_size_limit)
