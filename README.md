@@ -6,4 +6,4 @@ Just `pip install cpyparsing` then `import cPyparsing as pyparsing` or otherwise
 
 `cPyparsing` is currently only up-to-date with `pyparsing==2.4.7`—`cPyparsing` has no current plans to support any `pyparsing>=3` features. `cPyparsing` supports Python `2.6+` on Python 2 and Python `3.3+` on Python 3.
 
-Additionally, `cPyparsing` supports an incremental mode that can be enabled with `ParserElement.enableIncremental()`. In incremental mode, if the same grammar is used to first parse some string, then later parse a continuation of that string, incremental mode will produce substantial performance improvements. Note, however, that incremental mode does not preserve parse exception error messages.
+Additionally, `cPyparsing` supports an incremental mode that can be enabled with `ParserElement.enableIncremental()`. In incremental mode, if the same grammar is used to first parse some string, then later parse another string that shares a common prefix, incremental mode will produce substantial performance improvements. Note, however, that incremental mode does not preserve parse exception error messages.

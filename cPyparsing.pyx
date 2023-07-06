@@ -38,10 +38,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.0.0"
-__versionTime__ = "05 Jul 2023 04:11 UTC"
+__version__ = "2.4.7.2.1.0"
+__versionTime__ = "06 Jul 2023 07:51 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1278
+_WRAP_CALL_LINE_NUM = 1280
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -74,6 +74,8 @@ from operator import itemgetter
 import itertools
 from functools import wraps
 from contextlib import contextmanager
+# [CPYPARSING] import commonprefix
+from os.path import commonprefix
 
 try:
     # Python 3
@@ -1836,14 +1838,15 @@ class ParserElement(object):
 
     # [CPYPARSING] add _parseIncremental
     def _parseIncremental(self, instring, loc, doActions=True, callPreParse=True):
-        """Version of ParserElement._parseCache that can reuse caches from prefix parses."""
+        """Version of ParserElement._parseCache that can reuse caches from common prefix parses."""
         # determine the prefixes to check for caches
         prefixes = self._instring_prefixes.get(instring)
         if prefixes is None:
-            prefixes = [instring]
+            prefixes = [(instring, len(instring))]
             for other_instring in self._instring_prefixes:
-                if instring.startswith(other_instring):
-                    prefixes.append(other_instring)
+                common_prefix = commonprefix([instring, other_instring])
+                if common_prefix:
+                    prefixes.append((other_instring, len(common_prefix)))
             self._instring_prefixes[instring] = prefixes
 
         with ParserElement.packrat_cache_lock:
@@ -1854,17 +1857,17 @@ class ParserElement(object):
             cache = ParserElement.packrat_cache
 
             # try to find a hit
-            for prefix in prefixes:
+            for prefix, prefix_len in prefixes:
                 # skip non-instring prefixes when we're at the end of them,
                 #  since we know they'll fail the check below
-                if loc >= len(prefix) and len(prefix) != len(instring):
+                if loc >= prefix_len and prefix_len != len(instring):
                     continue
                 lookup = (self, prefix, loc, callPreParse, doActions, tuple(self.packrat_context))
                 cache_result = cache.get(lookup)
                 if cache_result is not cache.not_in_cache:
                     cache_furthest_loc, cache_item = cache_result
                     # don't use non-instring results that hit up against the end of the prefix
-                    if len(prefix) == len(instring) or cache_furthest_loc < len(prefix):
+                    if prefix_len == len(instring) or cache_furthest_loc < prefix_len:
                         ParserElement.packrat_cache_stats[HIT] += 1
                         if cache_item is None:  # success
                             # if we found a successful parse, unlike _parseCache, we still
@@ -1914,7 +1917,7 @@ class ParserElement(object):
         if not ParserElement._incrementalEnabled:
             ParserElement._incrementalEnabled = True
 
-            """Enable incremental parsing mode where caches from prefix parses are reused."""
+            """Enable incremental parsing mode where caches from common prefix parses are reused."""
             # Force reenable packrat to clear the cache and ensure we're using the correct cache_size_limit
             ParserElement._packratEnabled = False
             ParserElement.enablePackrat(cache_size_limit=cache_size_limit)
