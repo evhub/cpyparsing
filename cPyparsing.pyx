@@ -39,9 +39,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.1.1"
-__versionTime__ = "06 Jul 2023 08:46 UTC"
+__versionTime__ = "07 Jul 2023 21:14 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1280
+_WRAP_CALL_LINE_NUM = 1286
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -76,6 +76,8 @@ from functools import wraps
 from contextlib import contextmanager
 # [CPYPARSING] import commonprefix
 from os.path import commonprefix
+# [CPYPARSING] import defaultdict
+from collections import defaultdict
 
 try:
     # Python 3
@@ -145,6 +147,8 @@ __diag__.warn_multiple_tokens_in_named_alternation = False
 __diag__.warn_ungrouped_named_tokens_in_collection = False
 __diag__.warn_name_set_on_empty_Forward = False
 __diag__.warn_on_multiple_string_args_to_oneof = False
+# [CPYPARSING] add warn_on_incremental_multiline_regex
+__diag__.warn_on_incremental_multiline_regex = False
 __diag__.enable_debug_on_named_expressions = False
 __diag__._all_names = [nm for nm in vars(__diag__) if nm.startswith("enable_") or nm.startswith("warn_")]
 
@@ -153,6 +157,8 @@ def _enable_all_warnings():
     __diag__.warn_ungrouped_named_tokens_in_collection = True
     __diag__.warn_name_set_on_empty_Forward = True
     __diag__.warn_on_multiple_string_args_to_oneof = True
+    # [CPYPARSING] add warn_on_incremental_multiline_regex
+    __diag__.warn_on_incremental_multiline_regex = True
 __diag__.enable_all_warnings = _enable_all_warnings
 
 
@@ -1815,7 +1821,7 @@ class ParserElement(object):
     def _parseCache(self, instring, loc, doActions=True, callPreParse=True):
         # [CPYPARSING] HIT, MISS are constants
         # [CPYPARSING] include packrat_context
-        lookup = (self, instring, loc, callPreParse, doActions, tuple(self.packrat_context))
+        lookup = (self, instring, loc, callPreParse, doActions, tuple(ParserElement.packrat_context))
         with ParserElement.packrat_cache_lock:
             cache = ParserElement.packrat_cache
             value = cache.get(lookup)
@@ -1836,36 +1842,49 @@ class ParserElement(object):
                     raise value
                 return value[0], value[1].copy()
 
+    # [CPYPARSING] add _update_furthest_loc_for_regex
+    def _update_furthest_loc_for_regex(self, instring, loc, flags=0):
+        if ParserElement._incrementalEnabled:
+            if flags & re.MULTILINE:
+                if __diag__.warn_on_incremental_multiline_regex:
+                    warnings.warn("found multiline regex during incremental parsing; will hurt performance: " + repr(self), SyntaxWarning, stacklevel=1)
+                ParserElement._furthest_locs[instring] = len(instring) - 1
+            else:
+                next_linebreak_loc = instring.find("\n", loc)
+                if next_linebreak_loc < 0:
+                    next_linebreak_loc = len(instring) - 1
+                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], next_linebreak_loc)
+
     # [CPYPARSING] add _parseIncremental
     def _parseIncremental(self, instring, loc, doActions=True, callPreParse=True):
         """Version of ParserElement._parseCache that can reuse caches from common prefix parses."""
         # determine the prefixes to check for caches
-        prefixes = self._instring_prefixes.get(instring)
+        prefixes = ParserElement._instring_prefixes.get(instring)
         if prefixes is None:
             prefixes = [(instring, len(instring))]
-            for other_instring in self._instring_prefixes:
+            for other_instring in ParserElement._instring_prefixes:
                 common_prefix = commonprefix([instring, other_instring])
                 if common_prefix:
                     prefixes.append((other_instring, len(common_prefix)))
-            self._instring_prefixes[instring] = prefixes
+            ParserElement._instring_prefixes[instring] = prefixes
 
         with ParserElement.packrat_cache_lock:
-            # update furthest loc
-            ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs.get(instring, 0), loc)
+            # update furthest_loc
+            ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc)
 
             cache = ParserElement.packrat_cache
 
             # try to find a hit
-            for prefix, prefix_len in prefixes:
+            for prefix_instring, prefix_len in prefixes:
                 # skip non-instring prefixes when we're at the end of them,
                 #  since we know they'll fail the check below
                 if loc >= prefix_len - 1 and prefix_len != len(instring):
                     continue
-                lookup = (self, prefix, loc, callPreParse, doActions, tuple(self.packrat_context))
+                lookup = (self, prefix_instring, loc, callPreParse, doActions, tuple(ParserElement.packrat_context))
                 cache_result = cache.get(lookup)
                 if cache_result is not cache.not_in_cache:
                     cache_furthest_loc, cache_item = cache_result
-                    # don't use non-instring results that hit up against the end of the prefix
+                    # don't use non-instring results that looked at the end of the prefix
                     if prefix_len == len(instring) or cache_furthest_loc < prefix_len - 1:
                         ParserElement.packrat_cache_stats[HIT] += 1
                         if cache_item is None:  # success
@@ -1880,20 +1899,14 @@ class ParserElement(object):
 
             # otherwise do miss behavior
             ParserElement.packrat_cache_stats[MISS] += 1
-            lookup = (self, instring, loc, callPreParse, doActions, tuple(self.packrat_context))
+            lookup = (self, instring, loc, callPreParse, doActions, tuple(ParserElement.packrat_context))
             try:
                 new_loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
             # _parseIncremental only caches the minimum necessary information to limit
             #  the memory footprint of very large caches
             except ParseBaseException as pe:
-                # Unfortunately, failed parses don't always update the loc on the ParseException
-                #  to the furthest point looked at; sometimes, they will do silent lookaheads,
-                #  which is something we can't really get around. Thus, we make the sketchy
-                #  assumption that no single parse element will look more than one line ahead.
-                next_linebreak_loc = instring.find("\n", max(loc, pe.loc))
-                if next_linebreak_loc < 0:
-                    next_linebreak_loc = len(instring) - 1
-                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], next_linebreak_loc)
+                # update furthest_loc
+                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], pe.loc)
                 # on failure, cache (furthest loc, exception loc)
                 cache.set(lookup, (ParserElement._furthest_locs[instring], pe.loc))
                 raise
@@ -1916,7 +1929,7 @@ class ParserElement(object):
         # [CPYPARSING] reset incremental attributes
         if ParserElement._incrementalEnabled:
             ParserElement._instring_prefixes = {}
-            ParserElement._furthest_locs = {}
+            ParserElement._furthest_locs = defaultdict(int)
 
     # [CPYPARSING] add enableIncremental
     _incrementalEnabled = False
@@ -1925,12 +1938,12 @@ class ParserElement(object):
     def enableIncremental(cache_size_limit=None, still_reset_cache=False):
         """Enable incremental parsing mode where caches from common prefix parses are reused.
 
-        Incremental mode does not fully preserve parse exception error messages and may produce
-        incorrect results if individual parse elements are looking more than one line ahead."""
+        Incremental mode does not fully preserve parse exception error messages and
+        will only confer performance improvements for grammars without multiline regexes."""
         if not ParserElement._incrementalEnabled:
             ParserElement._incrementalEnabled = True
 
-            # Force reenable packrat to clear the cache and ensure we're using the correct cache_size_limit
+            # force reenable packrat to clear the cache and ensure we're using the correct cache_size_limit
             ParserElement._packratEnabled = False
             ParserElement.enablePackrat(cache_size_limit=cache_size_limit)
 
@@ -2970,6 +2983,9 @@ class Literal(Token):
     def parseImpl(self, instring, loc, doActions=True):
         if instring[loc] == self.firstMatchChar and instring.startswith(self.match, loc):
             return loc + self.matchLen, self.match
+        # [CPYPARSING] update furthest_loc
+        if ParserElement._incrementalEnabled:
+            ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc + self.matchLen)
         raise ParseException(instring, loc, self.errmsg, self)
 
 class _SingleCharLiteral(Literal):
@@ -3046,6 +3062,9 @@ class Keyword(Token):
                         and (loc == 0 or instring[loc - 1] not in self.identChars)):
                     return loc + self.matchLen, self.match
 
+        # [CPYPARSING] update furthest_loc
+        if ParserElement._incrementalEnabled:
+            ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc + self.matchLen)
         raise ParseException(instring, loc, self.errmsg, self)
 
     def copy(self):
@@ -3080,6 +3099,9 @@ class CaselessLiteral(Literal):
     def parseImpl(self, instring, loc, doActions=True):
         if instring[loc:loc + self.matchLen].upper() == self.match:
             return loc + self.matchLen, self.returnString
+        # [CPYPARSING] update furthest_loc
+        if ParserElement._incrementalEnabled:
+            ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc + self.matchLen)
         raise ParseException(instring, loc, self.errmsg, self)
 
 class CaselessKeyword(Keyword):
@@ -3327,9 +3349,13 @@ class _WordRegex(Word):
     def parseImpl(self, instring, loc, doActions=True):
         result = self.re_match(instring, loc)
         if not result:
+            # [CPYPARSING] update furthest_loc
+            self._update_furthest_loc_for_regex(instring, loc)
             raise ParseException(instring, loc, self.errmsg, self)
 
         loc = result.end()
+        # [CPYPARSING] update furthest_loc
+        self._update_furthest_loc_for_regex(instring, loc)
         return loc, result.group()
 
 
@@ -3419,6 +3445,8 @@ class Regex(Token):
     def parseImpl(self, instring, loc, doActions=True):
         result = self.re_match(instring, loc)
         if not result:
+            # [CPYPARSING] update furthest_loc
+            self._update_furthest_loc_for_regex(instring, loc, self.flags)
             raise ParseException(instring, loc, self.errmsg, self)
 
         loc = result.end()
@@ -3427,24 +3455,34 @@ class Regex(Token):
         if d:
             for k, v in d.items():
                 ret[k] = v
+        # [CPYPARSING] update furthest_loc
+        self._update_furthest_loc_for_regex(instring, loc, self.flags)
         return loc, ret
 
     def parseImplAsGroupList(self, instring, loc, doActions=True):
         result = self.re_match(instring, loc)
         if not result:
+            # [CPYPARSING] update furthest_loc
+            self._update_furthest_loc_for_regex(instring, loc, self.flags)
             raise ParseException(instring, loc, self.errmsg, self)
 
         loc = result.end()
         ret = result.groups()
+        # [CPYPARSING] update furthest_loc
+        self._update_furthest_loc_for_regex(instring, loc, self.flags)
         return loc, ret
 
     def parseImplAsMatch(self, instring, loc, doActions=True):
         result = self.re_match(instring, loc)
         if not result:
+            # [CPYPARSING] update furthest_loc
+            self._update_furthest_loc_for_regex(instring, loc, self.flags)
             raise ParseException(instring, loc, self.errmsg, self)
 
         loc = result.end()
         ret = result
+        # [CPYPARSING] update furthest_loc
+        self._update_furthest_loc_for_regex(instring, loc, self.flags)
         return loc, ret
 
     def __str__(self):
@@ -3594,6 +3632,8 @@ class QuotedString(Token):
     def parseImpl(self, instring, loc, doActions=True):
         result = instring[loc] == self.firstQuoteChar and self.re_match(instring, loc) or None
         if not result:
+            # [CPYPARSING] update furthest_loc
+            self._update_furthest_loc_for_regex(instring, loc, self.flags)
             raise ParseException(instring, loc, self.errmsg, self)
 
         loc = result.end()
@@ -3624,6 +3664,8 @@ class QuotedString(Token):
                 if self.escQuote:
                     ret = ret.replace(self.escQuote, self.endQuoteChar)
 
+        # [CPYPARSING] update furthest_loc
+        self._update_furthest_loc_for_regex(instring, loc, self.flags)
         return loc, ret
 
     def __str__(self):
