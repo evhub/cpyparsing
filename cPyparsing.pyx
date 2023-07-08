@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.1.1"
-__versionTime__ = "07 Jul 2023 21:14 UTC"
+__versionTime__ = "08 Jul 2023 00:21 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1286
 
@@ -1326,6 +1326,88 @@ HIT, MISS = 0, 1
 TRY, MATCH, FAIL = 0, 1, 2
 
 
+# [CPYPARSING] caches are normal global classes
+class _UnboundedCache(object):
+    def __init__(self):
+        self.not_in_cache = object()
+        # [CPYPARSING] add self.cache
+        self.cache = {}
+
+    def get(self, key):
+        return self.cache.get(key, self.not_in_cache)
+
+    def set(self, key, value):
+        self.cache[key] = value
+
+    def clear(self):
+        self.cache.clear()
+
+    def __len__(self):
+        return len(self.cache)
+
+    # [CPYPARSING] add __reduce__
+    def __reduce__(self):
+        return (self.__class__, (), {"cache": self.cache})
+
+if _OrderedDict is not None:
+    class _FifoCache(object):
+        def __init__(self, size):
+            self.not_in_cache = object()
+            # [CPYPARSING] add self.size, self.cache
+            self.size = size
+            self.cache = _OrderedDict()
+
+        def get(self, key):
+            return self.cache.get(key, self.not_in_cache)
+
+        def set(self, key, value):
+            self.cache[key] = value
+            while len(self.cache) > self.size:
+                try:
+                    self.cache.popitem(False)
+                except KeyError:
+                    pass
+
+        def clear(self):
+            self.cache.clear()
+
+        def __len__(self):
+            return len(self.cache)
+
+        # [CPYPARSING] add __reduce__
+        def __reduce__(self):
+            return (self.__class__, (self.size,), {"cache": self.cache})
+
+else:
+    class _FifoCache(object):
+        def __init__(self, size):
+            self.not_in_cache = object()
+            # [CPYPARSING] add self.size, self.cache
+            self.size = size
+            self.cache = {}
+            self.key_fifo = collections.deque([], self.size)
+
+        def get(self, key):
+            return self.cache.get(key, self.not_in_cache)
+
+        def set(self, key, value):
+            self.cache[key] = value
+            while len(self.key_fifo) > self.size:
+                self.cache.pop(self.key_fifo.popleft(), None)
+            self.key_fifo.append(key)
+
+        def clear(self):
+            self.cache.clear()
+            self.key_fifo.clear()
+
+        def __len__(self):
+            return len(self.cache)
+
+        # [CPYPARSING] add __reduce__
+        def __reduce__(self):
+            return (self.__class__, (self.size,), {"cache": self.cache, "key_fifo": self.key_fifo})
+
+
 class ParserElement(object):
     """Abstract base level parser element class."""
     DEFAULT_WHITE_CHARS = " \n\t\r"
@@ -1723,91 +1805,7 @@ class ParserElement(object):
         else:
             return True
 
-    class _UnboundedCache(object):
-        def __init__(self):
-            cache = {}
-            self.not_in_cache = not_in_cache = object()
-
-            def get(self, key):
-                return cache.get(key, not_in_cache)
-
-            def set(self, key, value):
-                cache[key] = value
-
-            def clear(self):
-                cache.clear()
-
-            def cache_len(self):
-                return len(cache)
-
-            self.get = types.MethodType(get, self)
-            self.set = types.MethodType(set, self)
-            self.clear = types.MethodType(clear, self)
-            self.__len__ = types.MethodType(cache_len, self)
-            # [CPYPARSING] add self.cache
-            self.cache = cache
-
-    if _OrderedDict is not None:
-        class _FifoCache(object):
-            def __init__(self, size):
-                self.not_in_cache = not_in_cache = object()
-
-                cache = _OrderedDict()
-
-                def get(self, key):
-                    return cache.get(key, not_in_cache)
-
-                def set(self, key, value):
-                    cache[key] = value
-                    while len(cache) > size:
-                        try:
-                            cache.popitem(False)
-                        except KeyError:
-                            pass
-
-                def clear(self):
-                    cache.clear()
-
-                def cache_len(self):
-                    return len(cache)
-
-                self.get = types.MethodType(get, self)
-                self.set = types.MethodType(set, self)
-                self.clear = types.MethodType(clear, self)
-                self.__len__ = types.MethodType(cache_len, self)
-                # [CPYPARSING] add self.cache
-                self.cache = cache
-
-    else:
-        class _FifoCache(object):
-            def __init__(self, size):
-                self.not_in_cache = not_in_cache = object()
-
-                cache = {}
-                key_fifo = collections.deque([], size)
-
-                def get(self, key):
-                    return cache.get(key, not_in_cache)
-
-                def set(self, key, value):
-                    cache[key] = value
-                    while len(key_fifo) > size:
-                        cache.pop(key_fifo.popleft(), None)
-                    key_fifo.append(key)
-
-                def clear(self):
-                    cache.clear()
-                    key_fifo.clear()
-
-                def cache_len(self):
-                    return len(cache)
-
-                self.get = types.MethodType(get, self)
-                self.set = types.MethodType(set, self)
-                self.clear = types.MethodType(clear, self)
-                self.__len__ = types.MethodType(cache_len, self)
-                # [CPYPARSING] add self.cache
-                self.cache = cache
+    # [CPYPARSING] caches are globals
 
     # argument cache for optimizing repeated calls when backtracking through recursive expressions
     packrat_cache = {} # this is set later by enabledPackrat(); this is here so that resetCache() doesn't fail
@@ -1986,9 +1984,9 @@ class ParserElement(object):
         if not ParserElement._packratEnabled:
             ParserElement._packratEnabled = True
             if cache_size_limit is None:
-                ParserElement.packrat_cache = ParserElement._UnboundedCache()
+                ParserElement.packrat_cache = _UnboundedCache()
             else:
-                ParserElement.packrat_cache = ParserElement._FifoCache(cache_size_limit)
+                ParserElement.packrat_cache = _FifoCache(cache_size_limit)
             ParserElement._parse = ParserElement._parseCache
 
     def parseString(self, instring, parseAll=False):

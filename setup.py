@@ -20,6 +20,7 @@ from __future__ import print_function, absolute_import, unicode_literals, divisi
 import sys
 import os.path
 import setuptools
+import warnings
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from constants import (
@@ -37,6 +38,7 @@ from constants import (
 try:
     from Cython.Build import cythonize
 except ImportError:
+    warnings.warn("cPyparsing couldn't find Cython; falling back to bundled cPyparsing.c")
     ext_modules = [setuptools.Extension(str(base_name), [str(c_name)])]
 else:
     ext_modules = cythonize(
