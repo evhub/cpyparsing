@@ -38,10 +38,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.1.1"
-__versionTime__ = "08 Jul 2023 00:21 UTC"
+__version__ = "2.4.7.2.1.2"
+__versionTime__ = "18 Jul 2023 07:47 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1286
+_WRAP_CALL_LINE_NUM = 1287
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -1259,26 +1259,27 @@ def _trim_arity(func, maxargs=2):
     limit = [0]
     foundArity = [False]
 
-    # traceback return data structure changed in Py3.5 - normalize back to plain tuples
-    if system_version[:2] >= (3, 5):
-        def extract_stack(limit=0):
-            # special handling for Python 3.5.0 - extra deep call stack by 1
-            offset = -3 if system_version == (3, 5, 0) else -2
-            frame_summary = traceback.extract_stack(limit=-offset + limit - 1)[offset]
-            return [frame_summary[:2]]
-        def extract_tb(tb, limit=0):
-            frames = traceback.extract_tb(tb, limit=limit)
-            frame_summary = frames[-1]
-            return [frame_summary[:2]]
-    else:
-        extract_stack = traceback.extract_stack
-        extract_tb = traceback.extract_tb
+    # [CPYPARSING] disable traceback inspection
+    # # traceback return data structure changed in Py3.5 - normalize back to plain tuples
+    # if system_version[:2] >= (3, 5):
+    #     def extract_stack(limit=0):
+    #         # special handling for Python 3.5.0 - extra deep call stack by 1
+    #         offset = -3 if system_version == (3, 5, 0) else -2
+    #         frame_summary = traceback.extract_stack(limit=-offset + limit - 1)[offset]
+    #         return [frame_summary[:2]]
+    #     def extract_tb(tb, limit=0):
+    #         frames = traceback.extract_tb(tb, limit=limit)
+    #         frame_summary = frames[-1]
+    #         return [frame_summary[:2]]
+    # else:
+    #     extract_stack = traceback.extract_stack
+    #     extract_tb = traceback.extract_tb
 
-    # synthesize what would be returned by traceback.extract_stack at the call to
-    # user's parse action 'func', so that we don't incur call penalty at parse time
+    # # synthesize what would be returned by traceback.extract_stack at the call to
+    # # user's parse action 'func', so that we don't incur call penalty at parse time
 
-    # [CPYPARSING] use preprocessed constants
-    pa_call_line_synth = (_FILE_NAME, _WRAP_CALL_LINE_NUM)
+    # # [CPYPARSING] use preprocessed constants
+    # pa_call_line_synth = (_FILE_NAME, _WRAP_CALL_LINE_NUM)
 
     def wrapper(*args):
         while 1:
@@ -1290,16 +1291,17 @@ def _trim_arity(func, maxargs=2):
                 # re-raise TypeErrors if they did not come from our arity testing
                 if foundArity[0]:
                     raise
-                else:
-                    try:
-                        tb = sys.exc_info()[-1]
-                        if not extract_tb(tb, limit=2)[-1][:2] == pa_call_line_synth:
-                            raise
-                    finally:
-                        try:
-                            del tb
-                        except NameError:
-                            pass
+                # [CPYPARSING] disable traceback inspection
+                # else:
+                #     try:
+                #         tb = sys.exc_info()[-1]
+                #         if not extract_tb(tb, limit=2)[-1][:2] == pa_call_line_synth:
+                #             raise
+                #     finally:
+                #         try:
+                #             del tb
+                #         except NameError:
+                #             pass
 
                 if limit[0] <= maxargs:
                     limit[0] += 1
