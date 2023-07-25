@@ -28,7 +28,7 @@ from datetime import datetime
 # when releasing a new version, create a release on github
 #  and make upload-current on all platforms
 pyparsing_version = "2.4.7"
-development_version = "2.1.2"
+development_version = "2.2.0"
 
 wrap_call_line = "                ret = func(*args[limit[0]:])"
 

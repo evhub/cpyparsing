@@ -38,10 +38,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.1.2"
-__versionTime__ = "19 Jul 2023 03:18 UTC"
+__version__ = "2.4.7.2.2.0"
+__versionTime__ = "25 Jul 2023 02:51 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1287
+_WRAP_CALL_LINE_NUM = 1288
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -1259,27 +1259,28 @@ def _trim_arity(func, maxargs=2):
     limit = [0]
     foundArity = [False]
 
-    # [CPYPARSING] disable traceback inspection
-    # # traceback return data structure changed in Py3.5 - normalize back to plain tuples
-    # if system_version[:2] >= (3, 5):
-    #     def extract_stack(limit=0):
-    #         # special handling for Python 3.5.0 - extra deep call stack by 1
-    #         offset = -3 if system_version == (3, 5, 0) else -2
-    #         frame_summary = traceback.extract_stack(limit=-offset + limit - 1)[offset]
-    #         return [frame_summary[:2]]
-    #     def extract_tb(tb, limit=0):
-    #         frames = traceback.extract_tb(tb, limit=limit)
-    #         frame_summary = frames[-1]
-    #         return [frame_summary[:2]]
-    # else:
-    #     extract_stack = traceback.extract_stack
-    #     extract_tb = traceback.extract_tb
+    # [CPYPARSING] use _trim_arity.inspect_tracebacks
+    if _trim_arity.inspect_tracebacks:
+        # traceback return data structure changed in Py3.5 - normalize back to plain tuples
+        if system_version[:2] >= (3, 5):
+            def extract_stack(limit=0):
+                # special handling for Python 3.5.0 - extra deep call stack by 1
+                offset = -3 if system_version == (3, 5, 0) else -2
+                frame_summary = traceback.extract_stack(limit=-offset + limit - 1)[offset]
+                return [frame_summary[:2]]
+            def extract_tb(tb, limit=0):
+                frames = traceback.extract_tb(tb, limit=limit)
+                frame_summary = frames[-1]
+                return [frame_summary[:2]]
+        else:
+            extract_stack = traceback.extract_stack
+            extract_tb = traceback.extract_tb
 
-    # # synthesize what would be returned by traceback.extract_stack at the call to
-    # # user's parse action 'func', so that we don't incur call penalty at parse time
+    # synthesize what would be returned by traceback.extract_stack at the call to
+    # user's parse action 'func', so that we don't incur call penalty at parse time
 
-    # # [CPYPARSING] use preprocessed constants
-    # pa_call_line_synth = (_FILE_NAME, _WRAP_CALL_LINE_NUM)
+    # [CPYPARSING] use preprocessed constants
+    pa_call_line_synth = (_FILE_NAME, _WRAP_CALL_LINE_NUM)
 
     def wrapper(*args):
         while 1:
@@ -1291,17 +1292,18 @@ def _trim_arity(func, maxargs=2):
                 # re-raise TypeErrors if they did not come from our arity testing
                 if foundArity[0]:
                     raise
-                # [CPYPARSING] disable traceback inspection
-                # else:
-                #     try:
-                #         tb = sys.exc_info()[-1]
-                #         if not extract_tb(tb, limit=2)[-1][:2] == pa_call_line_synth:
-                #             raise
-                #     finally:
-                #         try:
-                #             del tb
-                #         except NameError:
-                #             pass
+                else:
+                    # [CPYPARSING] use _trim_arity.inspect_tracebacks
+                    if _trim_arity.inspect_tracebacks:
+                        try:
+                            tb = sys.exc_info()[-1]
+                            if not extract_tb(tb, limit=2)[-1][:2] == pa_call_line_synth:
+                                raise
+                        finally:
+                            try:
+                                del tb
+                            except NameError:
+                                pass
 
                 if limit[0] <= maxargs:
                     limit[0] += 1
@@ -1320,6 +1322,9 @@ def _trim_arity(func, maxargs=2):
     wrapper.__name__ = py_str(func_name)
 
     return wrapper
+
+# [CPYPARSING] add _trim_arity.inspect_tracebacks
+_trim_arity.inspect_tracebacks = False
 
 
 # [CPYPARSING] HIT, MISS are constants
@@ -1857,16 +1862,21 @@ class ParserElement(object):
 
     # [CPYPARSING] add _parseIncremental
     def _parseIncremental(self, instring, loc, doActions=True, callPreParse=True):
-        """Version of ParserElement._parseCache that can reuse caches from common prefix parses."""
-        # determine the prefixes to check for caches
-        prefixes = ParserElement._instring_prefixes.get(instring)
-        if prefixes is None:
-            prefixes = [(instring, len(instring))]
-            for other_instring in ParserElement._instring_prefixes:
-                common_prefix = commonprefix([instring, other_instring])
-                if common_prefix:
-                    prefixes.append((other_instring, len(common_prefix)))
-            ParserElement._instring_prefixes[instring] = prefixes
+        """Version of ParserElement._parseCache that can reuse caches from common prefix/suffix parses."""
+        # determine the prefixes and suffixes to check for caches
+        prefixes_and_suffixes = ParserElement._instring_prefixes_and_suffixes.get(instring)
+        if prefixes_and_suffixes is None:
+            prefixes_and_suffixes = [
+                # instring, common prefix len, common suffix len
+                (instring, len(instring), len(instring)),
+            ]
+            reversed_instring = instring[::-1]
+            for other_instring in ParserElement._instring_prefixes_and_suffixes:
+                common_prefix_len = len(commonprefix([instring, other_instring]))
+                common_suffix_len = len(commonprefix([reversed_instring, other_instring[::-1]]))
+                if common_prefix_len or common_suffix_len:
+                    prefixes_and_suffixes.append((other_instring, common_prefix_len, common_suffix_len))
+            ParserElement._instring_prefixes_and_suffixes[instring] = prefixes_and_suffixes
 
         with ParserElement.packrat_cache_lock:
             # update furthest_loc
@@ -1875,17 +1885,36 @@ class ParserElement(object):
             cache = ParserElement.packrat_cache
 
             # try to find a hit
-            for prefix_instring, prefix_len in prefixes:
-                # skip non-instring prefixes when we're at the end of them,
-                #  since we know they'll fail the check below
-                if loc >= prefix_len - 1 and prefix_len != len(instring):
+            for other_instring, prefix_len, suffix_len in prefixes_and_suffixes:
+                if (
+                    # only cancel lookup if other_instring is not instring
+                    prefix_len != len(instring)
+                    and (
+                        # conditions under which we shouldn't check the cache:
+                        # - we're at the end of other_instring
+                        loc >= len(other_instring) - 1
+                        or (
+                            # - we're both past the common prefix
+                            loc >= prefix_len - 1
+                            #   and before the common suffix
+                            and loc <= len(instring) - suffix_len
+                        )
+                    )
+                ):
                     continue
-                lookup = (self, prefix_instring, loc, callPreParse, doActions, tuple(ParserElement.packrat_context))
+                lookup = (self, other_instring, loc, callPreParse, doActions, tuple(ParserElement.packrat_context))
                 cache_result = cache.get(lookup)
                 if cache_result is not cache.not_in_cache:
                     cache_furthest_loc, cache_item = cache_result
-                    # don't use non-instring results that looked at the end of the prefix
-                    if prefix_len == len(instring) or cache_furthest_loc < prefix_len - 1:
+                    if (
+                        # if other_instring is instring
+                        prefix_len == len(instring)
+                        # or we never looked past the end of the prefix
+                        or cache_furthest_loc < prefix_len - 1
+                        # or we're past the start of the suffix
+                        or loc > len(instring) - suffix_len
+                        # then we can use this result
+                    ):
                         ParserElement.packrat_cache_stats[HIT] += 1
                         if cache_item is None:  # success
                             # if we found a successful parse, unlike _parseCache, we still
@@ -1928,7 +1957,7 @@ class ParserElement(object):
         ParserElement.packrat_cache_stats[:] = [0] * len(ParserElement.packrat_cache_stats)
         # [CPYPARSING] reset incremental attributes
         if ParserElement._incrementalEnabled:
-            ParserElement._instring_prefixes = {}
+            ParserElement._instring_prefixes_and_suffixes = {}
             ParserElement._furthest_locs = defaultdict(int)
 
     # [CPYPARSING] add enableIncremental
@@ -1936,7 +1965,7 @@ class ParserElement(object):
     _incrementalWithResets = False
     @staticmethod
     def enableIncremental(cache_size_limit=None, still_reset_cache=False):
-        """Enable incremental parsing mode where caches from common prefix parses are reused.
+        """Enable incremental parsing mode where caches from common prefix/suffix parses are reused.
 
         Incremental mode does not fully preserve parse exception error messages and
         will only confer performance improvements for grammars without multiline regexes."""
