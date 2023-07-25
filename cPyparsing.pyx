@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.2.0"
-__versionTime__ = "25 Jul 2023 02:57 UTC"
+__version__ = "2.4.7.2.2.1"
+__versionTime__ = "25 Jul 2023 06:54 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1288
 
@@ -1865,7 +1865,7 @@ class ParserElement(object):
         """Version of ParserElement._parseCache that can reuse caches from common prefix/suffix parses."""
         # determine the prefixes and suffixes to check for caches
         prefixes_and_suffixes = ParserElement._instring_prefixes_and_suffixes.get(instring)
-        if prefixes_and_suffixes is None:
+        if prefixes_and_suffixes is None:  # this should only happen once per instring
             prefixes_and_suffixes = [
                 # instring, common prefix len, common suffix len
                 (instring, len(instring), len(instring)),
@@ -1876,6 +1876,8 @@ class ParserElement(object):
                 common_suffix_len = len(commonprefix([reversed_instring, other_instring[::-1]]))
                 if common_prefix_len or common_suffix_len:
                     prefixes_and_suffixes.append((other_instring, common_prefix_len, common_suffix_len))
+            # sort the strings with the largest common prefixes/suffixes to the front so we check them first
+            prefixes_and_suffixes.sort(key=lambda s_pl_sl: sum(s_pl_sl[1:]), reverse=True)
             ParserElement._instring_prefixes_and_suffixes[instring] = prefixes_and_suffixes
 
         with ParserElement.packrat_cache_lock:
@@ -1883,52 +1885,67 @@ class ParserElement(object):
             ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc)
 
             cache = ParserElement.packrat_cache
+            packrat_context = tuple(ParserElement.packrat_context)
 
             # try to find a hit
+            hit = None
             for other_instring, prefix_len, suffix_len in prefixes_and_suffixes:
+                is_instring = prefix_len == len(instring)
+
+                # look for prefix hit
                 if (
-                    # only cancel lookup if other_instring is not instring
-                    prefix_len != len(instring)
-                    and (
-                        # conditions under which we shouldn't check the cache:
-                        # - we're at the end of other_instring
-                        loc >= len(other_instring) - 1
-                        or (
-                            # - we're both past the common prefix
-                            loc >= prefix_len - 1
-                            #   and before the common suffix
-                            and loc <= len(instring) - suffix_len
-                        )
-                    )
+                    # always check instring itself here
+                    is_instring
+                    # or if we're in the common prefix (and not at the end of it)
+                    or loc < prefix_len - 1
                 ):
-                    continue
-                lookup = (self, other_instring, loc, callPreParse, doActions, tuple(ParserElement.packrat_context))
-                cache_result = cache.get(lookup)
-                if cache_result is not cache.not_in_cache:
-                    cache_furthest_loc, cache_item = cache_result
-                    if (
-                        # if other_instring is instring
-                        prefix_len == len(instring)
-                        # or we never looked past the end of the prefix
-                        or cache_furthest_loc < prefix_len - 1
-                        # or we're past the start of the suffix
-                        or loc > len(instring) - suffix_len
-                        # then we can use this result
-                    ):
-                        ParserElement.packrat_cache_stats[HIT] += 1
-                        if cache_item is None:  # success
-                            # if we found a successful parse, unlike _parseCache, we still
-                            #  need to actually run the parse actions since they might be greedy
-                            #  actions that need to actually be called in this parse
-                            return self._parseNoCache(instring, loc, doActions, callPreParse)
-                        else:  # failure; cache_item is exception loc
-                            # unlike _parseCache, we don't cache the full exception,
-                            #  so we need to rebuild it here, which can make exceptions a bit wonky
-                            raise ParseException(instring, cache_item, self.errmsg, self)
+                    prefix_lookup = (self, other_instring, loc, callPreParse, doActions, packrat_context)
+                    cache_result = cache.get(prefix_lookup)
+                    if cache_result is not cache.not_in_cache:
+                        cache_furthest_loc, cache_item = cache_result
+                        if (
+                            # if other_instring is instring
+                            is_instring
+                            # or we never looked past the end of the prefix
+                            or cache_furthest_loc < prefix_len - 1
+                            # then we can use this result
+                        ):
+                            hit = cache_item
+                            break
+
+                # otherwise look for suffix hit
+                if (
+                    # don't recheck instring itself
+                    not is_instring
+                    # only check if we're in the common suffix (and not at the start of it)
+                    and loc > len(instring) - suffix_len
+                ):
+                    loc_in_suffix = len(other_instring) - (len(instring) - loc)
+                    suffix_lookup = (self, other_instring, loc_in_suffix, callPreParse, doActions, packrat_context)
+                    cache_result = cache.get(suffix_lookup)
+                    if cache_result is not cache.not_in_cache:
+                        cache_furthest_loc, cache_item = cache_result
+                        # the conditions above ensure that if we've gotten here,
+                        #  we can always use this result
+                        hit = cache_item
+                        break
+
+            # handle the hit if we got one
+            if hit is not None:
+                ParserElement.packrat_cache_stats[HIT] += 1
+                if hit is True:  # success
+                    # if we found a successful parse, unlike _parseCache, we still
+                    #  need to actually run the parse actions since they might be greedy
+                    #  actions that need to actually be called in this parse
+                    return self._parseNoCache(instring, loc, doActions, callPreParse)
+                else:  # failure; hit is exception loc
+                    # unlike _parseCache, we don't cache the full exception,
+                    #  so we need to rebuild it here, which can make exceptions a bit wonky
+                    raise ParseException(instring, hit, self.errmsg, self)
 
             # otherwise do miss behavior
             ParserElement.packrat_cache_stats[MISS] += 1
-            lookup = (self, instring, loc, callPreParse, doActions, tuple(ParserElement.packrat_context))
+            lookup = (self, instring, loc, callPreParse, doActions, packrat_context)
             try:
                 new_loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
             # _parseIncremental only caches the minimum necessary information to limit
@@ -1942,8 +1959,8 @@ class ParserElement(object):
             else:
                 # update furthest_loc
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
-                # on success, cache (furthest loc, None)
-                cache.set(lookup, (ParserElement._furthest_locs[instring], None))
+                # on success, cache (furthest loc, True)
+                cache.set(lookup, (ParserElement._furthest_locs[instring], True))
                 return new_loc, ret_toks
 
     _parse = _parseNoCache
