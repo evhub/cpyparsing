@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.0"
-__versionTime__ = "25 Jul 2023 02:51 UTC"
+__versionTime__ = "25 Jul 2023 02:57 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1288
 
@@ -1967,8 +1967,7 @@ class ParserElement(object):
     def enableIncremental(cache_size_limit=None, still_reset_cache=False):
         """Enable incremental parsing mode where caches from common prefix/suffix parses are reused.
 
-        Incremental mode does not fully preserve parse exception error messages and
-        will only confer performance improvements for grammars without multiline regexes."""
+        Note that incremental mode does not fully preserve parse exception error messages."""
         if not ParserElement._incrementalEnabled:
             ParserElement._incrementalEnabled = True
 
