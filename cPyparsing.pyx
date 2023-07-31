@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.2.1"
-__versionTime__ = "25 Jul 2023 06:54 UTC"
+__version__ = "2.4.7.2.2.2"
+__versionTime__ = "31 Jul 2023 03:23 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1288
 
@@ -1464,6 +1464,14 @@ class ParserElement(object):
             tb = tb.tb_next
         return tb
 
+    # [CPYPARSING] add collectParseElements
+    _all_parse_elements = None
+    parse_element_index = None
+    @staticmethod
+    def collectParseElements():
+        ParserElement._all_parse_elements = []
+        return ParserElement._all_parse_elements
+
     def __init__(self, savelist=False):
         self.parseAction = list()
         self.failAction = None
@@ -1486,6 +1494,10 @@ class ParserElement(object):
         self.re = None
         self.callPreparse = True # used to avoid redundant calls to preParse
         self.callDuringTry = False
+        # [CPYPARSING] collect parse element indices
+        if ParserElement._all_parse_elements is not None:
+            self.parse_element_index = len(ParserElement._all_parse_elements)
+            ParserElement._all_parse_elements.append(self)
 
     def copy(self):
         """
