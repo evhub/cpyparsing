@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.2.2"
-__versionTime__ = "31 Jul 2023 03:23 UTC"
+__version__ = "2.4.7.2.2.3"
+__versionTime__ = "03 Aug 2023 05:40 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1288
 
@@ -1873,6 +1873,7 @@ class ParserElement(object):
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], next_linebreak_loc)
 
     # [CPYPARSING] add _parseIncremental
+    _should_cache_incremental_success = True  # experimentally determined
     def _parseIncremental(self, instring, loc, doActions=True, callPreParse=True):
         """Version of ParserElement._parseCache that can reuse caches from common prefix/suffix parses."""
         # determine the prefixes and suffixes to check for caches
@@ -1971,8 +1972,10 @@ class ParserElement(object):
             else:
                 # update furthest_loc
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
-                # on success, cache (furthest loc, True)
-                cache.set(lookup, (ParserElement._furthest_locs[instring], True))
+                # since we just recompute the parse action anyway on a success, we don't have to cache them
+                if ParserElement._should_cache_incremental_success:
+                    # on success, cache (furthest loc, True)
+                    cache.set(lookup, (ParserElement._furthest_locs[instring], True))
                 return new_loc, ret_toks
 
     _parse = _parseNoCache
