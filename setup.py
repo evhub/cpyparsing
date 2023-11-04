@@ -49,6 +49,7 @@ else:
             "overflowcheck": True,
             "cdivision": True,
             "infer_types": True,
+            "embedsignature": True,
         },
     )
 
