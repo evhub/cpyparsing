@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.3"
-__versionTime__ = "04 Nov 2023 05:55 UTC"
+__versionTime__ = "08 Nov 2023 09:50 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1288
 
@@ -4429,12 +4429,46 @@ class MatchFirst(ParseExpression):
             self.saveAsList = any(e.saveAsList for e in self.exprs)
         return self
 
+    # [CPYPARSING] add adaptive mode constants
+    adaptive_mode = False
+    usage_weight = 1
+    adaptive_usage = None
+    expr_order = None
+
+    # [CPYPARSING] add setAdaptiveMode
+    @staticmethod
+    def setAdaptiveMode(on, usage_weight=1):
+        """DO NOT USE UNLESS YOU KNOW WHAT YOU ARE DOING."""
+        MatchFirst.adaptive_mode = on
+        MatchFirst.usage_weight = usage_weight
+
+    # [CPYPARSING] implement adaptive mode
     def parseImpl(self, instring, loc, doActions=True):
+        if self.adaptive_mode:
+            if self.expr_order is None:
+                self.expr_order = list(range(len(self.exprs)))
+            else:
+                self.expr_order += list(range(len(self.expr_order), len(self.exprs)))
+            if self.adaptive_usage is None:
+                self.adaptive_usage = [0] * len(self.exprs)
+            else:
+                self.adaptive_usage += [0] * (len(self.exprs) - len(self.adaptive_usage))
+
         maxExcLoc = -1
         maxException = None
-        for e in self.exprs:
+        for i, ind_or_e in enumerate(self.expr_order if self.adaptive_mode else self.exprs):
+            if self.adaptive_mode:
+                ind = ind_or_e
+                e = self.exprs[ind]
+            else:
+                ind = i
+                e = ind_or_e
             try:
                 ret = e._parse(instring, loc, doActions)
+                if self.adaptive_usage is not None:
+                    self.adaptive_usage[ind] += self.usage_weight
+                if self.adaptive_mode and i > 0 and self.adaptive_usage[ind] > self.adaptive_usage[self.expr_order[i-1]]:
+                    self.expr_order[i-1], self.expr_order[i] = self.expr_order[i], self.expr_order[i-1]
                 return ret
             except ParseException as err:
                 if err.loc > maxExcLoc:
