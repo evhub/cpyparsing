@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.3"
-__versionTime__ = "09 Nov 2023 04:30 UTC"
+__versionTime__ = "10 Nov 2023 07:26 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1288
 
@@ -4119,7 +4119,8 @@ class ParseExpression(ParserElement):
         # (likewise for Or's and MatchFirst's)
         if len(self.exprs) == 2:
             other = self.exprs[0]
-            if (isinstance(other, self.__class__)
+            # [CPYPARSING] enforce __class__ equality
+            if (other.__class__ == self.__class__
                     and not other.parseAction
                     and other.resultsName is None
                     and not other.debug):
@@ -4129,7 +4130,8 @@ class ParseExpression(ParserElement):
                 self.mayIndexError  |= other.mayIndexError
 
             other = self.exprs[-1]
-            if (isinstance(other, self.__class__)
+            # [CPYPARSING] enforce __class__ equality
+            if (other.__class__ == self.__class__
                     and not other.parseAction
                     and other.resultsName is None
                     and not other.debug):
@@ -4257,6 +4259,9 @@ class And(ParseExpression):
     def __iadd__(self, other):
         if isinstance(other, basestring):
             other = self._literalStringClass(other)
+        # [CPYPARSING] fix mayReturnEmpty, mayIndexError
+        self.mayReturnEmpty = self.mayReturnEmpty and other.mayReturnEmpty
+        self.mayIndexError |= other.mayIndexError
         return self.append(other)  # And([self, other])
 
     def checkRecursion(self, parseElementList):
@@ -4370,6 +4375,9 @@ class Or(ParseExpression):
     def __ixor__(self, other):
         if isinstance(other, basestring):
             other = self._literalStringClass(other)
+        # [CPYPARSING] fix mayReturnEmpty, mayIndexError
+        self.mayReturnEmpty = self.mayReturnEmpty or other.mayReturnEmpty
+        self.mayIndexError |= other.mayIndexError
         return self.append(other)  # Or([self, other])
 
     def __str__(self):
@@ -4490,6 +4498,9 @@ class MatchFirst(ParseExpression):
     def __ior__(self, other):
         if isinstance(other, basestring):
             other = self._literalStringClass(other)
+        # [CPYPARSING] fix mayReturnEmpty, mayIndexError
+        self.mayReturnEmpty = self.mayReturnEmpty or other.mayReturnEmpty
+        self.mayIndexError |= other.mayIndexError
         return self.append(other)  # MatchFirst([self, other])
 
     def __str__(self):
