@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.3"
-__versionTime__ = "10 Nov 2023 07:26 UTC"
+__versionTime__ = "10 Nov 2023 09:57 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1288
 
@@ -4075,6 +4075,13 @@ class ParseExpression(ParserElement):
     def append(self, other):
         self.exprs.append(other)
         self.strRepr = None
+        # [CPYPARSING] fix append
+        if isinstance(self, And):
+            self.mayReturnEmpty &= other.mayReturnEmpty
+        else:
+            self.mayReturnEmpty |= other.mayReturnEmpty
+        self.mayIndexError |= other.mayIndexError
+        self.saveAsList |= other.saveAsList
         return self
 
     def leaveWhitespace(self):
@@ -4126,8 +4133,13 @@ class ParseExpression(ParserElement):
                     and not other.debug):
                 self.exprs = other.exprs[:] + [self.exprs[1]]
                 self.strRepr = None
-                self.mayReturnEmpty |= other.mayReturnEmpty
-                self.mayIndexError  |= other.mayIndexError
+                # [CPYPARSING] fix saveAsList, mayReturnEmpty
+                self.saveAsList |= other.saveAsList
+                if isinstance(self, And):
+                    self.mayReturnEmpty &= other.mayReturnEmpty
+                else:
+                    self.mayReturnEmpty |= other.mayReturnEmpty
+                self.mayIndexError |= other.mayIndexError
 
             other = self.exprs[-1]
             # [CPYPARSING] enforce __class__ equality
@@ -4137,8 +4149,13 @@ class ParseExpression(ParserElement):
                     and not other.debug):
                 self.exprs = self.exprs[:-1] + other.exprs[:]
                 self.strRepr = None
-                self.mayReturnEmpty |= other.mayReturnEmpty
-                self.mayIndexError  |= other.mayIndexError
+                # [CPYPARSING] fix saveAsList, mayReturnEmpty
+                self.saveAsList |= other.saveAsList
+                if isinstance(self, And):
+                    self.mayReturnEmpty &= other.mayReturnEmpty
+                else:
+                    self.mayReturnEmpty |= other.mayReturnEmpty
+                self.mayIndexError |= other.mayIndexError
 
         self.errmsg = "Expected " + _ustr(self)
 
@@ -4259,9 +4276,6 @@ class And(ParseExpression):
     def __iadd__(self, other):
         if isinstance(other, basestring):
             other = self._literalStringClass(other)
-        # [CPYPARSING] fix mayReturnEmpty, mayIndexError
-        self.mayReturnEmpty = self.mayReturnEmpty and other.mayReturnEmpty
-        self.mayIndexError |= other.mayIndexError
         return self.append(other)  # And([self, other])
 
     def checkRecursion(self, parseElementList):
@@ -4375,9 +4389,6 @@ class Or(ParseExpression):
     def __ixor__(self, other):
         if isinstance(other, basestring):
             other = self._literalStringClass(other)
-        # [CPYPARSING] fix mayReturnEmpty, mayIndexError
-        self.mayReturnEmpty = self.mayReturnEmpty or other.mayReturnEmpty
-        self.mayIndexError |= other.mayIndexError
         return self.append(other)  # Or([self, other])
 
     def __str__(self):
@@ -4498,9 +4509,6 @@ class MatchFirst(ParseExpression):
     def __ior__(self, other):
         if isinstance(other, basestring):
             other = self._literalStringClass(other)
-        # [CPYPARSING] fix mayReturnEmpty, mayIndexError
-        self.mayReturnEmpty = self.mayReturnEmpty or other.mayReturnEmpty
-        self.mayIndexError |= other.mayIndexError
         return self.append(other)  # MatchFirst([self, other])
 
     def __str__(self):
