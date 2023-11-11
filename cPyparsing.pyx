@@ -1767,7 +1767,7 @@ class ParserElement(object):
                     preloc = loc
                 tokensStart = preloc
                 got = safe_call(self.parseImpl, instring, preloc, doActions)
-                if self.mayIndexError or preloc >= len(instring) and isinstance(got, IndexError):
+                if (self.mayIndexError or preloc >= len(instring)) and isinstance(got, IndexError):
                     got_error = ParseException(instring, len(instring), self.errmsg, self)
                 elif isinstance(got, Exception):
                     got_error = got
@@ -1789,12 +1789,12 @@ class ParserElement(object):
                 preloc = loc
             tokensStart = preloc
             got = safe_call(self.parseImpl, instring, preloc, doActions)
-            if self.mayIndexError or preloc >= len(instring) and isinstance(got, IndexError):
+            if (self.mayIndexError or preloc >= len(instring)) and isinstance(got, IndexError):
                 return ParseException(instring, len(instring), self.errmsg, self)
             elif isinstance(got, Exception):
                 return got
             else:
-                loc, tokens = self.parseImpl(instring, preloc, doActions)
+                loc, tokens = got
 
         tokens = self.postParse(instring, loc, tokens)
 
