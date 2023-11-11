@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.3"
-__versionTime__ = "11 Nov 2023 06:07 UTC"
+__versionTime__ = "11 Nov 2023 06:13 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1329
 
@@ -2154,7 +2154,7 @@ class ParserElement(object):
                 else:  # failure; hit is exception loc
                     # unlike _parseCache, we don't cache the full exception,
                     #  so we need to rebuild it here, which can make exceptions a bit wonky
-                    return ParseException(instring, hit, self.errmsg, self)
+                    raise ParseException(instring, hit, self.errmsg, self)
 
             # otherwise do miss behavior
             ParserElement.packrat_cache_stats[MISS] += 1
