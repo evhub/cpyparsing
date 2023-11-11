@@ -39,9 +39,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.3"
-__versionTime__ = "10 Nov 2023 09:57 UTC"
+__versionTime__ = "11 Nov 2023 01:05 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1288
+_WRAP_CALL_LINE_NUM = 1310
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -460,6 +460,28 @@ class RecursiveGrammarException(Exception):
 
     def __str__(self):
         return "RecursiveGrammarException: %s" % self.parseElementTrace
+
+
+# [CPYPARINSG] add returns_excs
+def returns_excs(safe_func):
+    @wraps(safe_func)
+    def raises_excs(*args, **kwargs):
+        got = safe_func(*args, **kwargs)
+        if isinstance(got, Exception):
+            raise got
+        else:
+            return got
+    raises_excs.safe_func = safe_func
+    return raises_excs
+
+
+# [CPYPARINSG] add safe_call
+def safe_call(maybe_safe_func, *args, **kwargs):
+    try:
+        return getattr(maybe_safe_func, "safe_func", maybe_safe_func)(*args, **kwargs)
+    except Exception as exc:
+        return exc
+
 
 class _ParseResultsWithOffset(object):
     def __init__(self, p1, p2):
@@ -1691,17 +1713,21 @@ class ParserElement(object):
         self.failAction = fn
         return self
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def _skipIgnorables(self, instring, loc):
         exprsFound = True
         while exprsFound:
             exprsFound = False
             for e in self.ignoreExprs:
-                try:
-                    while 1:
-                        loc, dummy = e._parse(instring, loc)
-                        exprsFound = True
-                except ParseException:
-                    pass
+                while 1:
+                    got = safe_call(e._parse, instring, loc)
+                    if isinstance(got, ParseException):
+                        break
+                    if isinstance(got, Exception):
+                        return got
+                    loc, dummy = got
+                    exprsFound = True
         return loc
 
     def preParse(self, instring, loc):
@@ -1722,7 +1748,9 @@ class ParserElement(object):
     def postParse(self, instring, loc, tokenlist):
         return tokenlist
 
+    # [CPYPARSING] make safe
     # ~ @profile
+    @returns_excs
     def _parseNoCache(self, instring, loc, doActions=True, callPreParse=True):
         # [CPYPARSING] TRY, MATCH, FAIL are constants
         debugging = (self.debug)  # and doActions)
@@ -1731,37 +1759,40 @@ class ParserElement(object):
             # ~ print ("Match", self, "at loc", loc, "(%d, %d)" % (lineno(loc, instring), col(loc, instring)))
             if self.debugActions[TRY]:
                 self.debugActions[TRY](instring, loc, self)
+            got_error = None
             try:
                 if callPreParse and self.callPreparse:
                     preloc = self.preParse(instring, loc)
                 else:
                     preloc = loc
                 tokensStart = preloc
-                if self.mayIndexError or preloc >= len(instring):
-                    try:
-                        loc, tokens = self.parseImpl(instring, preloc, doActions)
-                    except IndexError:
-                        raise ParseException(instring, len(instring), self.errmsg, self)
+                got = safe_call(self.parseImpl, instring, preloc, doActions)
+                if self.mayIndexError or preloc >= len(instring) and isinstance(got, IndexError):
+                    got_error = ParseException(instring, len(instring), self.errmsg, self)
+                elif isinstance(got, Exception):
+                    got_error = got
                 else:
-                    loc, tokens = self.parseImpl(instring, preloc, doActions)
+                    loc, tokens = got
             except Exception as err:
-                # ~ print ("Exception raised:", err)
+                got_error = err
+            if got_error is not None:
+                # ~ print ("Exception raised:", got_error)
                 if self.debugActions[FAIL]:
-                    self.debugActions[FAIL](instring, tokensStart, self, err)
+                    self.debugActions[FAIL](instring, tokensStart, self, got_error)
                 if self.failAction:
-                    self.failAction(instring, tokensStart, self, err)
-                raise
+                    self.failAction(instring, tokensStart, self, got_error)
+                return got_error
         else:
             if callPreParse and self.callPreparse:
                 preloc = self.preParse(instring, loc)
             else:
                 preloc = loc
             tokensStart = preloc
-            if self.mayIndexError or preloc >= len(instring):
-                try:
-                    loc, tokens = self.parseImpl(instring, preloc, doActions)
-                except IndexError:
-                    raise ParseException(instring, len(instring), self.errmsg, self)
+            got = safe_call(self.parseImpl, instring, preloc, doActions)
+            if self.mayIndexError or preloc >= len(instring) and isinstance(got, IndexError):
+                return ParseException(instring, len(instring), self.errmsg, self)
+            elif isinstance(got, Exception):
+                return got
             else:
                 loc, tokens = self.parseImpl(instring, preloc, doActions)
 
@@ -1810,11 +1841,16 @@ class ParserElement(object):
 
         return loc, retTokens
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def tryParse(self, instring, loc):
-        try:
-            return self._parse(instring, loc, doActions=False)[0]
-        except ParseFatalException:
-            raise ParseException(instring, loc, self.errmsg, self)
+        got = safe_call(self._parse, instring, loc, doActions=False)
+        if isinstance(got, ParseFatalException):
+            return ParseException(instring, loc, self.errmsg, self)
+        elif isinstance(got, Exception):
+            return got
+        else:
+            return got[0]
 
     def canParseNext(self, instring, loc):
         try:
@@ -1833,8 +1869,10 @@ class ParserElement(object):
     # [CPYPARSING] add packrat_context
     packrat_context = []
 
+    # [CPYPARSING] make safe
     # this method gets repeatedly called during backtracking with the same arguments -
     # we can cache these arguments and save ourselves the trouble of re-parsing the contained expression
+    @returns_excs
     def _parseCache(self, instring, loc, doActions=True, callPreParse=True):
         # [CPYPARSING] HIT, MISS are constants
         # [CPYPARSING] include packrat_context
@@ -1844,19 +1882,20 @@ class ParserElement(object):
             value = cache.get(lookup)
             if value is cache.not_in_cache:
                 ParserElement.packrat_cache_stats[MISS] += 1
-                try:
-                    value = self._parseNoCache(instring, loc, doActions, callPreParse)
-                except ParseBaseException as pe:
+                value = safe_call(self._parseNoCache, instring, loc, doActions, callPreParse)
+                if isinstance(value, ParseBaseException):
                     # cache a copy of the exception, without the traceback
-                    cache.set(lookup, pe.__class__(*pe.args))
-                    raise
+                    cache.set(lookup, value.__class__(*value.args))
+                    return value
+                elif isinstance(value, Exception):
+                    return value
                 else:
                     cache.set(lookup, (value[0], value[1].copy()))
                     return value
             else:
                 ParserElement.packrat_cache_stats[HIT] += 1
                 if isinstance(value, Exception):
-                    raise value
+                    return value
                 return value[0], value[1].copy()
 
     # [CPYPARSING] add _update_furthest_loc_for_regex
@@ -1872,8 +1911,9 @@ class ParserElement(object):
                     next_linebreak_loc = len(instring) - 1
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], next_linebreak_loc)
 
-    # [CPYPARSING] add _parseIncremental
+    # [CPYPARSING] add safe _parseIncremental
     _should_cache_incremental_success = True  # experimentally determined
+    @returns_excs
     def _parseIncremental(self, instring, loc, doActions=True, callPreParse=True):
         """Version of ParserElement._parseCache that can reuse caches from common prefix/suffix parses."""
         # determine the prefixes and suffixes to check for caches
@@ -1950,26 +1990,28 @@ class ParserElement(object):
                     # if we found a successful parse, unlike _parseCache, we still
                     #  need to actually run the parse actions since they might be greedy
                     #  actions that need to actually be called in this parse
-                    return self._parseNoCache(instring, loc, doActions, callPreParse)
+                    return safe_call(self._parseNoCache, instring, loc, doActions, callPreParse)
                 else:  # failure; hit is exception loc
                     # unlike _parseCache, we don't cache the full exception,
                     #  so we need to rebuild it here, which can make exceptions a bit wonky
-                    raise ParseException(instring, hit, self.errmsg, self)
+                    return ParseException(instring, hit, self.errmsg, self)
 
             # otherwise do miss behavior
             ParserElement.packrat_cache_stats[MISS] += 1
             lookup = (self, instring, loc, callPreParse, doActions, packrat_context)
-            try:
-                new_loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
+            got = safe_call(self._parseNoCache, instring, loc, doActions, callPreParse)
             # _parseIncremental only caches the minimum necessary information to limit
             #  the memory footprint of very large caches
-            except ParseBaseException as pe:
+            if isinstance(got, ParseBaseException):
                 # update furthest_loc
-                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], pe.loc)
+                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], got.loc)
                 # on failure, cache (furthest loc, exception loc)
-                cache.set(lookup, (ParserElement._furthest_locs[instring], pe.loc))
-                raise
+                cache.set(lookup, (ParserElement._furthest_locs[instring], got.loc))
+                return got
+            elif isinstance(got, Exception):
+                return got
             else:
+                new_loc, ret_toks = got
                 # update furthest_loc
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
                 # since we just recompute the parse action anyway on a success, we don't have to cache them
@@ -3040,13 +3082,15 @@ class Literal(Token):
         if self.matchLen == 1 and type(self) is Literal:
             self.__class__ = _SingleCharLiteral
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if instring[loc] == self.firstMatchChar and instring.startswith(self.match, loc):
             return loc + self.matchLen, self.match
         # [CPYPARSING] update furthest_loc
         if ParserElement._incrementalEnabled:
             ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc + self.matchLen)
-        raise ParseException(instring, loc, self.errmsg, self)
+        return ParseException(instring, loc, self.errmsg, self)
 
 class _SingleCharLiteral(Literal):
     def parseImpl(self, instring, loc, doActions=True):
@@ -3105,6 +3149,8 @@ class Keyword(Token):
             identChars = identChars.upper()
         self.identChars = set(identChars)
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if self.caseless:
             if ((instring[loc:loc + self.matchLen].upper() == self.caselessmatch)
@@ -3125,7 +3171,7 @@ class Keyword(Token):
         # [CPYPARSING] update furthest_loc
         if ParserElement._incrementalEnabled:
             ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc + self.matchLen)
-        raise ParseException(instring, loc, self.errmsg, self)
+        return ParseException(instring, loc, self.errmsg, self)
 
     def copy(self):
         c = super(Keyword, self).copy()
@@ -3156,13 +3202,15 @@ class CaselessLiteral(Literal):
         self.name = "'%s'" % self.returnString
         self.errmsg = "Expected " + self.name
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if instring[loc:loc + self.matchLen].upper() == self.match:
             return loc + self.matchLen, self.returnString
         # [CPYPARSING] update furthest_loc
         if ParserElement._incrementalEnabled:
             ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc + self.matchLen)
-        raise ParseException(instring, loc, self.errmsg, self)
+        return ParseException(instring, loc, self.errmsg, self)
 
 class CaselessKeyword(Keyword):
     """
@@ -3356,9 +3404,11 @@ class Word(Token):
                 self.re_match = self.re.match
                 self.__class__ = _WordRegex
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if instring[loc] not in self.initChars:
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
         start = loc
         loc += 1
@@ -3380,7 +3430,7 @@ class Word(Token):
                 throwException = True
 
         if throwException:
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
         return loc, instring[start:loc]
 
@@ -3406,12 +3456,14 @@ class Word(Token):
         return self.strRepr
 
 class _WordRegex(Word):
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         result = self.re_match(instring, loc)
         if not result:
             # [CPYPARSING] update furthest_loc
             self._update_furthest_loc_for_regex(instring, loc)
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
         loc = result.end()
         # [CPYPARSING] update furthest_loc
@@ -3502,12 +3554,14 @@ class Regex(Token):
         if self.asMatch:
             self.parseImpl = self.parseImplAsMatch
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         result = self.re_match(instring, loc)
         if not result:
             # [CPYPARSING] update furthest_loc
             self._update_furthest_loc_for_regex(instring, loc, self.flags)
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
         loc = result.end()
         ret = ParseResults(result.group())
@@ -3519,12 +3573,14 @@ class Regex(Token):
         self._update_furthest_loc_for_regex(instring, loc, self.flags)
         return loc, ret
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImplAsGroupList(self, instring, loc, doActions=True):
         result = self.re_match(instring, loc)
         if not result:
             # [CPYPARSING] update furthest_loc
             self._update_furthest_loc_for_regex(instring, loc, self.flags)
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
         loc = result.end()
         ret = result.groups()
@@ -3532,12 +3588,14 @@ class Regex(Token):
         self._update_furthest_loc_for_regex(instring, loc, self.flags)
         return loc, ret
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImplAsMatch(self, instring, loc, doActions=True):
         result = self.re_match(instring, loc)
         if not result:
             # [CPYPARSING] update furthest_loc
             self._update_furthest_loc_for_regex(instring, loc, self.flags)
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
         loc = result.end()
         ret = result
@@ -3689,12 +3747,14 @@ class QuotedString(Token):
         self.mayIndexError = False
         self.mayReturnEmpty = True
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         result = instring[loc] == self.firstQuoteChar and self.re_match(instring, loc) or None
         if not result:
             # [CPYPARSING] update furthest_loc
             self._update_furthest_loc_for_regex(instring, loc, self.flags)
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
         loc = result.end()
         ret = result.group()
@@ -3785,9 +3845,11 @@ class CharsNotIn(Token):
         self.mayReturnEmpty = (self.minLen == 0)
         self.mayIndexError = False
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if instring[loc] in self.notChars:
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
         start = loc
         loc += 1
@@ -3797,7 +3859,7 @@ class CharsNotIn(Token):
             loc += 1
 
         if loc - start < self.minLen:
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
         return loc, instring[start:loc]
 
@@ -3869,9 +3931,11 @@ class White(Token):
             self.maxLen = exact
             self.minLen = exact
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if instring[loc] not in self.matchWhite:
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
         start = loc
         loc += 1
         maxloc = start + self.maxLen
@@ -3880,7 +3944,7 @@ class White(Token):
             loc += 1
 
         if loc - start < self.minLen:
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
         return loc, instring[start:loc]
 
@@ -3977,11 +4041,13 @@ class StringStart(_PositionToken):
         super(StringStart, self).__init__()
         self.errmsg = "Expected start of text"
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if loc != 0:
             # see if entire string up to here is just whitespace and ignoreables
             if loc != self.preParse(instring, 0):
-                raise ParseException(instring, loc, self.errmsg, self)
+                return ParseException(instring, loc, self.errmsg, self)
         return loc, []
 
 class StringEnd(_PositionToken):
@@ -3991,15 +4057,17 @@ class StringEnd(_PositionToken):
         super(StringEnd, self).__init__()
         self.errmsg = "Expected end of text"
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if loc < len(instring):
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
         elif loc == len(instring):
             return loc + 1, []
         elif loc > len(instring):
             return loc, []
         else:
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
 
 class WordStart(_PositionToken):
     """Matches if the current position is at the beginning of a Word,
@@ -4248,25 +4316,31 @@ class And(ParseExpression):
         self.mayReturnEmpty = all(e.mayReturnEmpty for e in self.exprs)
         return self
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         # pass False as last arg to _parse for first element, since we already
         # pre-parsed the string as part of our And pre-parsing
-        loc, resultlist = self.exprs[0]._parse(instring, loc, doActions, callPreParse=False)
+        got = safe_call(self.exprs[0]._parse, instring, loc, doActions, callPreParse=False)
+        if isinstance(got, Exception):
+            return got
+        loc, resultlist = got
         errorStop = False
         for e in self.exprs[1:]:
             if isinstance(e, And._ErrorStop):
                 errorStop = True
                 continue
             if errorStop:
-                try:
-                    loc, exprtokens = e._parse(instring, loc, doActions)
-                except ParseSyntaxException:
-                    raise
-                except ParseBaseException as pe:
-                    pe.__traceback__ = None
-                    raise ParseSyntaxException._from_exception(pe)
-                except IndexError:
-                    raise ParseSyntaxException(instring, len(instring), self.errmsg, self)
+                got = safe_call(e._parse, instring, loc,)
+                if isinstance(got, ParseSyntaxException):
+                    return got
+                elif isinstance(got, ParseBaseException):
+                    got.__traceback__ = None
+                    return ParseSyntaxException._from_exception(got)
+                elif isinstance(got, IndexError):
+                    return ParseSyntaxException(instring, len(instring), self.errmsg, self)
+                else:
+                    loc, exprtokens = got
             else:
                 loc, exprtokens = e._parse(instring, loc, doActions)
             if exprtokens or exprtokens.haskeys():
@@ -4453,15 +4527,18 @@ class MatchFirst(ParseExpression):
     usage_weight = 1
     adaptive_usage = None
     expr_order = None
+    allow_unused_expr_order = False
 
     # [CPYPARSING] add setAdaptiveMode
     @staticmethod
-    def setAdaptiveMode(on, usage_weight=1):
+    def setAdaptiveMode(on, usage_weight=1, allow_unused_expr_order=False):
         """DO NOT USE UNLESS YOU KNOW WHAT YOU ARE DOING."""
         MatchFirst.adaptive_mode = on
         MatchFirst.usage_weight = usage_weight
+        MatchFirst.allow_unused_expr_order = allow_unused_expr_order
 
-    # [CPYPARSING] implement adaptive mode
+    # [CPYPARSING] implement adaptive mode, make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if self.adaptive_mode:
             if self.expr_order is None:
@@ -4478,33 +4555,39 @@ class MatchFirst(ParseExpression):
         for i, ind_or_e in enumerate(self.expr_order if self.adaptive_mode else self.exprs):
             if self.adaptive_mode:
                 ind = ind_or_e
-                e = self.exprs[ind]
+                try:
+                    e = self.exprs[ind]
+                except IndexError as exc:
+                    if self.allow_unused_expr_order:
+                        continue
+                    else:
+                        return exc
             else:
                 ind = i
                 e = ind_or_e
-            try:
-                ret = e._parse(instring, loc, doActions)
+            got = safe_call(e._parse, instring, loc, doActions)
+            if isinstance(got, ParseException):
+                if got.loc > maxExcLoc:
+                    maxException = got
+                    maxExcLoc = got.loc
+            elif isinstance(got, IndexError):
+                if len(instring) > maxExcLoc:
+                    maxException = ParseException(instring, len(instring), e.errmsg, self)
+                    maxExcLoc = len(instring)
+            else:
                 if self.adaptive_usage is not None:
                     self.adaptive_usage[ind] += self.usage_weight
                 if self.adaptive_mode and i > 0 and self.adaptive_usage[ind] > self.adaptive_usage[self.expr_order[i-1]]:
                     self.expr_order[i-1], self.expr_order[i] = self.expr_order[i], self.expr_order[i-1]
-                return ret
-            except ParseException as err:
-                if err.loc > maxExcLoc:
-                    maxException = err
-                    maxExcLoc = err.loc
-            except IndexError:
-                if len(instring) > maxExcLoc:
-                    maxException = ParseException(instring, len(instring), e.errmsg, self)
-                    maxExcLoc = len(instring)
+                return got
 
         # only got here if no expression matched, raise exception for match that made it the furthest
         else:
             if maxException is not None:
                 maxException.msg = self.errmsg
-                raise maxException
+                return maxException
             else:
-                raise ParseException(instring, loc, "no defined alternatives to match", self)
+                return ParseException(instring, loc, "no defined alternatives to match", self)
 
     def __ior__(self, other):
         if isinstance(other, basestring):
@@ -4693,11 +4776,13 @@ class ParseElementEnhance(ParserElement):
             self.callPreparse = expr.callPreparse
             self.ignoreExprs.extend(expr.ignoreExprs)
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if self.expr is not None:
-            return self.expr._parse(instring, loc, doActions, callPreParse=False)
+            return safe_call(self.expr._parse, instring, loc, doActions, callPreParse=False)
         else:
-            raise ParseException("", loc, self.errmsg, self)
+            return ParseException("", loc, self.errmsg, self)
 
     def leaveWhitespace(self):
         self.skipWhitespace = False
@@ -4776,10 +4861,16 @@ class FollowedBy(ParseElementEnhance):
         super(FollowedBy, self).__init__(expr)
         self.mayReturnEmpty = True
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         # by using self._expr.parse and deleting the contents of the returned ParseResults list
         # we keep any named results that were defined in the FollowedBy expression
-        _, ret = self.expr._parse(instring, loc, doActions=doActions)
+        got = safe_call(self.expr._parse, instring, loc, doActions=doActions)
+        if isinstance(got, Exception):
+            return got
+
+        _, ret = got
         del ret[:]
 
         return loc, ret
@@ -4890,9 +4981,11 @@ class NotAny(ParseElementEnhance):
         self.mayReturnEmpty = True
         self.errmsg = "Found unwanted token, " + _ustr(self.expr)
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         if self.expr.canParseNext(instring, loc):
-            raise ParseException(instring, loc, self.errmsg, self)
+            return ParseException(instring, loc, self.errmsg, self)
         return loc, []
 
     def __str__(self):
@@ -4919,6 +5012,8 @@ class _MultipleMatch(ParseElementEnhance):
         self.not_ender = ~ender if ender is not None else None
         return self
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
         self_expr_parse = self.expr._parse
         self_skip_ignorables = self._skipIgnorables
@@ -4929,22 +5024,39 @@ class _MultipleMatch(ParseElementEnhance):
         # must be at least one (but first see if we are the stopOn sentinel;
         # if so, fail)
         if check_ender:
-            try_not_ender(instring, loc)
-        loc, tokens = self_expr_parse(instring, loc, doActions, callPreParse=False)
+            got = safe_call(try_not_ender, instring, loc)
+            if isinstance(got, Exception):
+                return got
+
+        got = safe_call(self_expr_parse, instring, loc, doActions, callPreParse=False)
+        if isinstance(got, Exception):
+            return got
+        loc, tokens = got
+
+        got_error = None
         try:
             hasIgnoreExprs = (not not self.ignoreExprs)
             while 1:
                 if check_ender:
-                    try_not_ender(instring, loc)
+                    got = safe_call(try_not_ender, instring, loc)
+                    if isinstance(got, Exception):
+                        got_error = got
+                        break
                 if hasIgnoreExprs:
                     preloc = self_skip_ignorables(instring, loc)
                 else:
                     preloc = loc
-                loc, tmptokens = self_expr_parse(instring, preloc, doActions)
+                got = safe_call(self_expr_parse, instring, preloc, doActions)
+                if isinstance(got, Exception):
+                    got_error = got
+                    break
+                loc, tmptokens = got
                 if tmptokens or tmptokens.haskeys():
                     tokens += tmptokens
-        except (ParseException, IndexError):
-            pass
+        except Exception as err:
+            got_error = err
+        if not isinstance(got_error, (ParseException, IndexError)):
+            return got_error
 
         return loc, tokens
 
@@ -5012,11 +5124,13 @@ class ZeroOrMore(_MultipleMatch):
         super(ZeroOrMore, self).__init__(expr, stopOn=stopOn)
         self.mayReturnEmpty = True
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
-        try:
-            return super(ZeroOrMore, self).parseImpl(instring, loc, doActions)
-        except (ParseException, IndexError):
+        got = super(ZeroOrMore, self).parseImpl(instring, loc, doActions)
+        if isinstance(got, (ParseException, IndexError)):
             return loc, []
+        return got
 
     def __str__(self):
         if hasattr(self, "name"):
@@ -5080,10 +5194,11 @@ class Optional(ParseElementEnhance):
         self.defaultValue = default
         self.mayReturnEmpty = True
 
+    # [CPYPARSING] make safe
+    @returns_excs
     def parseImpl(self, instring, loc, doActions=True):
-        try:
-            loc, tokens = self.expr._parse(instring, loc, doActions, callPreParse=False)
-        except (ParseException, IndexError):
+        got = safe_call(self.expr._parse, instring, loc, doActions, callPreParse=False)
+        if isinstance(got, (ParseException, IndexError)):
             if self.defaultValue is not self.__optionalNotMatched:
                 if self.expr.resultsName:
                     tokens = ParseResults([self.defaultValue])
@@ -5092,6 +5207,10 @@ class Optional(ParseElementEnhance):
                     tokens = [self.defaultValue]
             else:
                 tokens = []
+        elif isinstance(got, Exception):
+            return got
+        else:
+            loc, tokens = got
         return loc, tokens
 
     def __str__(self):
