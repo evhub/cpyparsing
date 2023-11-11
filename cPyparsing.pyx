@@ -39,9 +39,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.3"
-__versionTime__ = "11 Nov 2023 01:05 UTC"
+__versionTime__ = "11 Nov 2023 02:20 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1310
+_WRAP_CALL_LINE_NUM = 1332
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -72,12 +72,15 @@ import types
 from datetime import datetime
 from operator import itemgetter
 import itertools
-from functools import wraps
+# [CPYPARSING] import update_wrapper
+from functools import wraps, update_wrapper
 from contextlib import contextmanager
 # [CPYPARSING] import commonprefix
 from os.path import commonprefix
 # [CPYPARSING] import defaultdict
 from collections import defaultdict
+# [CPYPARSING] import MethodType
+from types import MethodType
 
 try:
     # Python 3
@@ -463,24 +466,43 @@ class RecursiveGrammarException(Exception):
 
 
 # [CPYPARINSG] add returns_excs
-def returns_excs(safe_func):
-    @wraps(safe_func)
-    def raises_excs(*args, **kwargs):
-        got = safe_func(*args, **kwargs)
+class returns_excs(object):
+    def __init__(self, safe_func):
+        try:
+            update_wrapper(self, safe_func)
+        except AttributeError:
+            pass
+        self.safe_func = safe_func
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        if sys.version_info < (3,):
+            method_func = MethodType(self.safe_func, obj, objtype)
+        else:
+            method_func = MethodType(self.safe_func, obj)
+        return returns_excs(method_func)
+
+    def __call__(self, *args, **kwargs):
+        got = self.safe_func(*args, **kwargs)
         if isinstance(got, Exception):
             raise got
         else:
             return got
-    raises_excs.safe_func = safe_func
-    return raises_excs
 
 
 # [CPYPARINSG] add safe_call
 def safe_call(maybe_safe_func, *args, **kwargs):
+    if isinstance(maybe_safe_func, returns_excs):
+        maybe_safe_func = maybe_safe_func.safe_func
+        safe_call.stats[HIT] += 1
+    else:
+        safe_call.stats[MISS] += 1
     try:
-        return getattr(maybe_safe_func, "safe_func", maybe_safe_func)(*args, **kwargs)
+        return maybe_safe_func(*args, **kwargs)
     except Exception as exc:
         return exc
+safe_call.stats = [0, 0]
 
 
 class _ParseResultsWithOffset(object):
