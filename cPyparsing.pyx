@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.3"
-__versionTime__ = "11 Nov 2023 06:13 UTC"
+__versionTime__ = "12 Nov 2023 07:02 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1329
 
@@ -4493,16 +4493,33 @@ class ParseExpression(ParserElement):
                 self.exprs = [exprs]
         self.callPreparse = False
 
+    # [CPYPARSING] fix append
     def append(self, other):
-        self.exprs.append(other)
-        self.strRepr = None
-        # [CPYPARSING] fix append
-        if isinstance(self, And):
-            self.mayReturnEmpty &= other.mayReturnEmpty
+        if (self.parseAction
+                or self.resultsName is not None
+                or self.debug):
+            return self.__class__([self, other])
+        elif (other.__class__ == self.__class__
+                and not other.parseAction
+                and other.resultsName is None
+                and not other.debug):
+            self.exprs += other.exprs
+            self.strRepr = None
+            self.saveAsList |= other.saveAsList
+            if isinstance(self, And):
+                self.mayReturnEmpty &= other.mayReturnEmpty
+            else:
+                self.mayReturnEmpty |= other.mayReturnEmpty
+            self.mayIndexError |= other.mayIndexError
         else:
-            self.mayReturnEmpty |= other.mayReturnEmpty
-        self.mayIndexError |= other.mayIndexError
-        self.saveAsList |= other.saveAsList
+            self.exprs.append(other)
+            self.strRepr = None
+            if isinstance(self, And):
+                self.mayReturnEmpty &= other.mayReturnEmpty
+            else:
+                self.mayReturnEmpty |= other.mayReturnEmpty
+            self.mayIndexError |= other.mayIndexError
+            self.saveAsList |= other.saveAsList
         return self
 
     def leaveWhitespace(self):
@@ -4552,7 +4569,8 @@ class ParseExpression(ParserElement):
                     and not other.parseAction
                     and other.resultsName is None
                     and not other.debug):
-                self.exprs = other.exprs[:] + [self.exprs[1]]
+                # [CPYPARSING] don't copy exprs
+                self.exprs = other.exprs + [self.exprs[1]]
                 self.strRepr = None
                 # [CPYPARSING] fix saveAsList, mayReturnEmpty
                 self.saveAsList |= other.saveAsList
@@ -4568,7 +4586,8 @@ class ParseExpression(ParserElement):
                     and not other.parseAction
                     and other.resultsName is None
                     and not other.debug):
-                self.exprs = self.exprs[:-1] + other.exprs[:]
+                # [CPYPARSING] don't copy exprs
+                self.exprs = self.exprs[:-1] + other.exprs
                 self.strRepr = None
                 # [CPYPARSING] fix saveAsList, mayReturnEmpty
                 self.saveAsList |= other.saveAsList
