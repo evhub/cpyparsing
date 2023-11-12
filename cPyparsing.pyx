@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.4"
-__versionTime__ = "12 Nov 2023 09:23 UTC"
+__versionTime__ = "12 Nov 2023 23:38 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1329
 
@@ -4922,19 +4922,17 @@ class MatchFirst(ParseExpression):
         return self
 
     # [CPYPARSING] add adaptive mode constants
-    adaptive_mode = False
-    usage_weight = 1
     adaptive_usage = None
     expr_order = None
-    allow_unused_expr_order = False
 
     # [CPYPARSING] add setAdaptiveMode
     @staticmethod
-    def setAdaptiveMode(on, usage_weight=1, allow_unused_expr_order=False):
+    def setAdaptiveMode(on, usage_weight=1, allow_unused_expr_order=False, adaptive_usage_check_rate=10):
         """DO NOT USE UNLESS YOU KNOW WHAT YOU ARE DOING."""
         MatchFirst.adaptive_mode = on
         MatchFirst.usage_weight = usage_weight
         MatchFirst.allow_unused_expr_order = allow_unused_expr_order
+        MatchFirst.adaptive_usage_check_rate = adaptive_usage_check_rate
 
     # [CPYPARSING] implement adaptive mode
     def parseImpl(self, instring, loc, doActions=True):
@@ -4967,7 +4965,7 @@ class MatchFirst(ParseExpression):
                 ret = e._parse(instring, loc, doActions)
                 if self.adaptive_usage is not None:
                     self.adaptive_usage[ind] += self.usage_weight
-                if self.adaptive_mode and i > 0 and self.adaptive_usage[ind] > self.adaptive_usage[self.expr_order[i-1]]:
+                if self.adaptive_mode and i > 0 and self.adaptive_usage[ind] % self.adaptive_usage_check_rate == 0 and self.adaptive_usage[ind] > self.adaptive_usage[self.expr_order[i-1]]:
                     self.expr_order[i-1], self.expr_order[i] = self.expr_order[i], self.expr_order[i-1]
                 return ret
             except ParseException as err:
@@ -5019,6 +5017,8 @@ class MatchFirst(ParseExpression):
 
         return super(MatchFirst, self)._setResultsName(name, listAllMatches)
 
+# [CPYPARSING] initialize adaptive mode to off
+MatchFirst.setAdaptiveMode(False)
 
 class Each(ParseExpression):
     """Requires all given :class:`ParseExpression` s to be found, but in
