@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.2.3"
-__versionTime__ = "12 Nov 2023 07:02 UTC"
+__version__ = "2.4.7.2.2.4"
+__versionTime__ = "12 Nov 2023 09:23 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1329
 
@@ -4953,7 +4953,13 @@ class MatchFirst(ParseExpression):
         for i, ind_or_e in enumerate(self.expr_order if self.adaptive_mode else self.exprs):
             if self.adaptive_mode:
                 ind = ind_or_e
-                e = self.exprs[ind]
+                try:
+                    e = self.exprs[ind]
+                except IndexError:
+                    if self.allow_unused_expr_order:
+                        continue
+                    else:
+                        raise
             else:
                 ind = i
                 e = ind_or_e
