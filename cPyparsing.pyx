@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.4"
-__versionTime__ = "12 Nov 2023 23:38 UTC"
+__versionTime__ = "13 Nov 2023 00:51 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1329
 
@@ -2045,19 +2045,113 @@ class ParserElement(object):
             if value is cache.not_in_cache:
                 ParserElement.packrat_cache_stats[MISS] += 1
                 try:
-                    value = self._parseNoCache(instring, loc, doActions, callPreParse)
+                    # value = self._parseNoCache(instring, loc, doActions, callPreParse)
+                    # [CPYPARSING] START INLINE _parseNoCache
+
+                    # [CPYPARSING] TRY, MATCH, FAIL are constants
+                    debugging = (self.debug)  # and doActions)
+
+                    if debugging or self.failAction:
+                        # ~ print ("Match", self, "at loc", loc, "(%d, %d)" % (lineno(loc, instring), col(loc, instring)))
+                        if self.debugActions[TRY]:
+                            self.debugActions[TRY](instring, loc, self)
+                        try:
+                            if callPreParse and self.callPreparse:
+                                preloc = self.preParse(instring, loc)
+                            else:
+                                preloc = loc
+                            tokensStart = preloc
+                            if self.mayIndexError or preloc >= len(instring):
+                                try:
+                                    loc, tokens = self.parseImpl(instring, preloc, doActions)
+                                except IndexError:
+                                    raise ParseException(instring, len(instring), self.errmsg, self)
+                            else:
+                                loc, tokens = self.parseImpl(instring, preloc, doActions)
+                        except Exception as err:
+                            # ~ print ("Exception raised:", err)
+                            if self.debugActions[FAIL]:
+                                self.debugActions[FAIL](instring, tokensStart, self, err)
+                            if self.failAction:
+                                self.failAction(instring, tokensStart, self, err)
+                            raise
+                    else:
+                        if callPreParse and self.callPreparse:
+                            preloc = self.preParse(instring, loc)
+                        else:
+                            preloc = loc
+                        tokensStart = preloc
+                        if self.mayIndexError or preloc >= len(instring):
+                            try:
+                                loc, tokens = self.parseImpl(instring, preloc, doActions)
+                            except IndexError:
+                                raise ParseException(instring, len(instring), self.errmsg, self)
+                        else:
+                            loc, tokens = self.parseImpl(instring, preloc, doActions)
+
+                    tokens = self.postParse(instring, loc, tokens)
+
+                    retTokens = ParseResults(tokens, self.resultsName, asList=self.saveAsList, modal=self.modalResults)
+                    if self.parseAction and (doActions or self.callDuringTry):
+                        if debugging:
+                            try:
+                                for fn in self.parseAction:
+                                    try:
+                                        tokens = fn(instring, tokensStart, retTokens)
+                                    except IndexError as parse_action_exc:
+                                        exc = ParseException("exception raised in parse action")
+                                        exc.__cause__ = parse_action_exc
+                                        raise exc
+
+                                    if tokens is not None and tokens is not retTokens:
+                                        retTokens = ParseResults(tokens,
+                                                                self.resultsName,
+                                                                asList=self.saveAsList and isinstance(tokens, (ParseResults, list)),
+                                                                modal=self.modalResults)
+                            except Exception as err:
+                                # ~ print "Exception raised in user parse action:", err
+                                if self.debugActions[FAIL]:
+                                    self.debugActions[FAIL](instring, tokensStart, self, err)
+                                raise
+                        else:
+                            for fn in self.parseAction:
+                                try:
+                                    tokens = fn(instring, tokensStart, retTokens)
+                                except IndexError as parse_action_exc:
+                                    exc = ParseException("exception raised in parse action")
+                                    exc.__cause__ = parse_action_exc
+                                    raise exc
+
+                                if tokens is not None and tokens is not retTokens:
+                                    retTokens = ParseResults(tokens,
+                                                            self.resultsName,
+                                                            asList=self.saveAsList and isinstance(tokens, (ParseResults, list)),
+                                                            modal=self.modalResults)
+                    if debugging:
+                        # ~ print ("Matched", self, "->", retTokens.asList())
+                        if self.debugActions[MATCH]:
+                            self.debugActions[MATCH](instring, tokensStart, loc, self, retTokens)
+
+                    # return loc, retTokens
+
+                    # [CPYPARSING] END INLINE _parseNoCache
+                    value = loc, retTokens
                 except ParseBaseException as pe:
                     # cache a copy of the exception, without the traceback
                     cache.set(lookup, pe.__class__(*pe.args))
                     raise
                 else:
-                    cache.set(lookup, (value[0], value[1].copy()))
+                    # [CPYPARSING] don't copy tokens
+                    # cache.set(lookup, (value[0], value[1].copy()))
+                    cache.set(lookup, value)
                     return value
             else:
                 ParserElement.packrat_cache_stats[HIT] += 1
                 if isinstance(value, Exception):
                     raise value
-                return value[0], value[1].copy()
+                # [CPYPARSING] don't copy tokens
+                # return value[0], value[1].copy()
+                return value
 
     # [CPYPARSING] add _update_furthest_loc_for_regex
     def _update_furthest_loc_for_regex(self, instring, loc, flags=0):
@@ -2146,36 +2240,130 @@ class ParserElement(object):
             # handle the hit if we got one
             if hit is not None:
                 ParserElement.packrat_cache_stats[HIT] += 1
-                if hit is True:  # success
-                    # if we found a successful parse, unlike _parseCache, we still
-                    #  need to actually run the parse actions since they might be greedy
-                    #  actions that need to actually be called in this parse
-                    return self._parseNoCache(instring, loc, doActions, callPreParse)
-                else:  # failure; hit is exception loc
+                # defer handling success until later so we can inline
+                # if hit is True:  # success
+                #     # if we found a successful parse, unlike _parseCache, we still
+                #     #  need to actually run the parse actions since they might be greedy
+                #     #  actions that need to actually be called in this parse
+                #     return self._parseNoCache(instring, loc, doActions, callPreParse)
+                if hit is not True:  # failure; hit is exception loc
                     # unlike _parseCache, we don't cache the full exception,
                     #  so we need to rebuild it here, which can make exceptions a bit wonky
                     raise ParseException(instring, hit, self.errmsg, self)
 
-            # otherwise do miss behavior
-            ParserElement.packrat_cache_stats[MISS] += 1
-            lookup = (self, instring, loc, callPreParse, doActions, packrat_context)
+            if hit is not True:
+                # otherwise do miss behavior
+                ParserElement.packrat_cache_stats[MISS] += 1
+                lookup = (self, instring, loc, callPreParse, doActions, packrat_context)
             # _parseIncremental only caches the minimum necessary information to limit
             #  the memory footprint of very large caches
             try:
-                new_loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
+                # loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
+                # [CPYPARSING] START INLINE _parseNoCache
+
+                # [CPYPARSING] TRY, MATCH, FAIL are constants
+                debugging = (self.debug)  # and doActions)
+
+                if debugging or self.failAction:
+                    # ~ print ("Match", self, "at loc", loc, "(%d, %d)" % (lineno(loc, instring), col(loc, instring)))
+                    if self.debugActions[TRY]:
+                        self.debugActions[TRY](instring, loc, self)
+                    try:
+                        if callPreParse and self.callPreparse:
+                            preloc = self.preParse(instring, loc)
+                        else:
+                            preloc = loc
+                        tokensStart = preloc
+                        if self.mayIndexError or preloc >= len(instring):
+                            try:
+                                loc, tokens = self.parseImpl(instring, preloc, doActions)
+                            except IndexError:
+                                raise ParseException(instring, len(instring), self.errmsg, self)
+                        else:
+                            loc, tokens = self.parseImpl(instring, preloc, doActions)
+                    except Exception as err:
+                        # ~ print ("Exception raised:", err)
+                        if self.debugActions[FAIL]:
+                            self.debugActions[FAIL](instring, tokensStart, self, err)
+                        if self.failAction:
+                            self.failAction(instring, tokensStart, self, err)
+                        raise
+                else:
+                    if callPreParse and self.callPreparse:
+                        preloc = self.preParse(instring, loc)
+                    else:
+                        preloc = loc
+                    tokensStart = preloc
+                    if self.mayIndexError or preloc >= len(instring):
+                        try:
+                            loc, tokens = self.parseImpl(instring, preloc, doActions)
+                        except IndexError:
+                            raise ParseException(instring, len(instring), self.errmsg, self)
+                    else:
+                        loc, tokens = self.parseImpl(instring, preloc, doActions)
+
+                tokens = self.postParse(instring, loc, tokens)
+
+                retTokens = ParseResults(tokens, self.resultsName, asList=self.saveAsList, modal=self.modalResults)
+                if self.parseAction and (doActions or self.callDuringTry):
+                    if debugging:
+                        try:
+                            for fn in self.parseAction:
+                                try:
+                                    tokens = fn(instring, tokensStart, retTokens)
+                                except IndexError as parse_action_exc:
+                                    exc = ParseException("exception raised in parse action")
+                                    exc.__cause__ = parse_action_exc
+                                    raise exc
+
+                                if tokens is not None and tokens is not retTokens:
+                                    retTokens = ParseResults(tokens,
+                                                            self.resultsName,
+                                                            asList=self.saveAsList and isinstance(tokens, (ParseResults, list)),
+                                                            modal=self.modalResults)
+                        except Exception as err:
+                            # ~ print "Exception raised in user parse action:", err
+                            if self.debugActions[FAIL]:
+                                self.debugActions[FAIL](instring, tokensStart, self, err)
+                            raise
+                    else:
+                        for fn in self.parseAction:
+                            try:
+                                tokens = fn(instring, tokensStart, retTokens)
+                            except IndexError as parse_action_exc:
+                                exc = ParseException("exception raised in parse action")
+                                exc.__cause__ = parse_action_exc
+                                raise exc
+
+                            if tokens is not None and tokens is not retTokens:
+                                retTokens = ParseResults(tokens,
+                                                        self.resultsName,
+                                                        asList=self.saveAsList and isinstance(tokens, (ParseResults, list)),
+                                                        modal=self.modalResults)
+                if debugging:
+                    # ~ print ("Matched", self, "->", retTokens.asList())
+                    if self.debugActions[MATCH]:
+                        self.debugActions[MATCH](instring, tokensStart, loc, self, retTokens)
+
+                # return loc, retTokens
+
+                # [CPYPARSING] END INLINE _parseNoCache
+                new_loc, ret_toks = loc, retTokens
             except ParseBaseException as err:
-                # update furthest_loc
-                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], err.loc)
-                # on failure, cache (furthest loc, exception loc)
-                cache.set(lookup, (ParserElement._furthest_locs[instring], err.loc))
+                if hit is not True:
+                    # update furthest_loc
+                    ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], err.loc)
+                    # on failure, cache (furthest loc, exception loc)
+                    cache.set(lookup, (ParserElement._furthest_locs[instring], err.loc))
                 raise
             else:
-                # update furthest_loc
-                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
-                # since we just recompute the parse action anyway on a success, we don't have to cache them
-                if ParserElement._should_cache_incremental_success:
-                    # on success, cache (furthest loc, True)
-                    cache.set(lookup, (ParserElement._furthest_locs[instring], True))
+                if hit is not True:
+                    # update furthest_loc
+                    ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
+                    # since we just recompute the parse action anyway on a success, we don't have to cache them
+                    if ParserElement._should_cache_incremental_success:
+                        # on success, cache (furthest loc, True)
+                        cache.set(lookup, (ParserElement._furthest_locs[instring], True))
                 return new_loc, ret_toks
 
     _parse = _parseNoCache

@@ -48,8 +48,10 @@ else:
             "language_level": 3,
             "overflowcheck": True,
             "cdivision": True,
+            "cpow": True,
             "infer_types": True,
             "embedsignature": True,
+            "c_api_binop_methods": True,
         },
     )
 
@@ -90,5 +92,7 @@ See cPyparsing's GitHub_ for more information.
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
     ],
 )
