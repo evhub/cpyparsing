@@ -39,9 +39,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.4"
-__versionTime__ = "13 Nov 2023 00:51 UTC"
+__versionTime__ = "13 Nov 2023 01:12 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1329
+_WRAP_CALL_LINE_NUM = 1330
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -961,7 +961,8 @@ class ParseResults(object):
         Returns a new copy of a :class:`ParseResults` object.
         """
         ret = ParseResults(self.__toklist)
-        ret.__tokdict = dict(self.__tokdict.items())
+        # [CPYPARSING] fast copy tokdict
+        ret.__tokdict = self.__tokdict.copy()
         ret.__parent = self.__parent
         ret.__accumNames.update(self.__accumNames)
         ret.__name = self.__name
@@ -2141,17 +2142,13 @@ class ParserElement(object):
                     cache.set(lookup, pe.__class__(*pe.args))
                     raise
                 else:
-                    # [CPYPARSING] don't copy tokens
-                    # cache.set(lookup, (value[0], value[1].copy()))
-                    cache.set(lookup, value)
+                    cache.set(lookup, (value[0], value[1].copy()))
                     return value
             else:
                 ParserElement.packrat_cache_stats[HIT] += 1
                 if isinstance(value, Exception):
                     raise value
-                # [CPYPARSING] don't copy tokens
-                # return value[0], value[1].copy()
-                return value
+                return value[0], value[1].copy()
 
     # [CPYPARSING] add _update_furthest_loc_for_regex
     def _update_furthest_loc_for_regex(self, instring, loc, flags=0):
