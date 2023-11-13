@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.2.4"
-__versionTime__ = "13 Nov 2023 02:28 UTC"
+__version__ = "2.4.7.2.2.5"
+__versionTime__ = "13 Nov 2023 03:30 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1330
 
@@ -5110,9 +5110,16 @@ class MatchFirst(ParseExpression):
     adaptive_usage = None
     expr_order = None
 
-    # [CPYPARSING] add setAdaptiveMode (note: adaptive_usage_check_rate should be prime)
+    # [CPYPARSING] add setAdaptiveMode
     @classmethod
-    def setAdaptiveMode(cls, on, usage_weight=1, allow_unused_expr_order=False, adaptive_usage_check_rate=7):
+    def setAdaptiveMode(
+        cls,
+        on,
+        usage_weight=1,
+        allow_unused_expr_order=False,
+        # performance-tuned (note: adaptive_usage_check_rate should be prime or None)
+        adaptive_usage_check_rate=7,
+    ):
         """DO NOT USE UNLESS YOU KNOW WHAT YOU ARE DOING."""
         cls.adaptive_mode = on
         cls.usage_weight = usage_weight
