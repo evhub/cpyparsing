@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.4"
-__versionTime__ = "13 Nov 2023 02:52 UTC"
+__versionTime__ = "13 Nov 2023 02:28 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1330
 
@@ -5153,7 +5153,7 @@ class MatchFirst(ParseExpression):
                 if self.adaptive_mode and i > 0:
                     usage = self.adaptive_usage[ind]
                     if (
-                        (not self.adaptive_usage_check_rate or usage % self.adaptive_usage_check_rate == 0)
+                        (not self.adaptive_usage_check_rate or usage % self.adaptive_usage_check_rate == 0 or usage < self.adaptive_usage_check_rate)
                         and usage > self.adaptive_usage[self.expr_order[i-1]]
                     ):
                         self.expr_order[i-1], self.expr_order[i] = self.expr_order[i], self.expr_order[i-1]
