@@ -29,6 +29,7 @@ from constants import (
     base_name,
     c_name,
     requirements,
+    compiler_directives,
 )
 
 #-----------------------------------------------------------------------------------------------------------------------
@@ -44,15 +45,7 @@ else:
     ext_modules = cythonize(
         str(file_name),
         force=True,
-        compiler_directives={
-            "language_level": 3,
-            "overflowcheck": True,
-            "cdivision": True,
-            "cpow": True,
-            "infer_types": True,
-            "embedsignature": True,
-            "c_api_binop_methods": True,
-        },
+        compiler_directives=compiler_directives,
     )
 
 setuptools.setup(

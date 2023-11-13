@@ -1,11 +1,11 @@
 .PHONY: full-test
-full-test: install test
+full-test: install-debug test
 
 .PHONY: full-test-2
-full-test-2: install test-2
+full-test-2: install-2 test-2
 
 .PHONY: full-test-3
-full-test-3: install test-3
+full-test-3: install-3 test-3
 
 .PHONY: install
 install: clean
@@ -24,6 +24,10 @@ install-3: clean
 	python3 -m pip install --upgrade pip wheel setuptools cython
 	python3 ./constants.py
 	python3 -m pip install --upgrade .
+
+.PHONY: install-debug
+install-debug: export CPYPARSING_DEBUG=TRUE
+install-debug: install
 
 .PHONY: prepare
 prepare:

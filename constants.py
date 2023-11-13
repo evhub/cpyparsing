@@ -20,6 +20,25 @@ from __future__ import print_function, absolute_import, unicode_literals, divisi
 import os.path
 from io import open
 from datetime import datetime
+from warnings import warn
+
+# -----------------------------------------------------------------------------------------------------------------------
+# UTILITIES:
+# -----------------------------------------------------------------------------------------------------------------------
+
+
+def get_bool_env_var(env_var, default=False):
+    """Get a boolean from an environment variable."""
+    boolstr = os.getenv(env_var, "").lower()
+    if boolstr in ("true", "yes", "on", "1", "t"):
+        return True
+    elif boolstr in ("false", "no", "off", "0", "f"):
+        return False
+    else:
+        if boolstr not in ("", "none", "default"):
+            warn("{env_var} has invalid value {value!r} (defaulting to {default})".format(env_var=env_var, value=os.getenv(env_var), default=default))
+        return default
+
 
 #-----------------------------------------------------------------------------------------------------------------------
 # BASE CONSTANTS:
@@ -38,9 +57,31 @@ requirements = [
     "cython>=0.29.21",
 ]
 
+debug_mode = get_bool_env_var("CPYPARSING_DEBUG")
+
+base_compiler_directives = {
+    "language_level": 3,
+    "overflowcheck": True,
+    "cdivision": True,
+    "cpow": True,
+    "infer_types": True,
+    "embedsignature": True,
+    "c_api_binop_methods": True,
+}
+
+debug_compiler_directives = {
+    "profile": True,
+    "emit_code_comments": True,
+}
+
 #-----------------------------------------------------------------------------------------------------------------------
 # DERIVED CONSTANTS:
 #--------------------------------------------------------------------------
+
+compiler_directives = base_compiler_directives.copy()
+if debug_mode:
+    warn("CPYPARSING_DEBUG mode enabled, using debug compilation parameters")
+    compiler_directives.update(debug_compiler_directives)
 
 version = pyparsing_version + "." + development_version
 
