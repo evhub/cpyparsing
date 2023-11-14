@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.2.5"
-__versionTime__ = "13 Nov 2023 07:02 UTC"
+__version__ = "2.4.7.2.2.6"
+__versionTime__ = "14 Nov 2023 00:58 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1330
 
@@ -1388,6 +1388,10 @@ class _UnboundedCache(object):
     def set(self, key, value):
         self.cache[key] = value
 
+    # [CPYPARSING] add update
+    def update(self, update_dict):
+        self.cache.update(update_dict)
+
     def clear(self):
         self.cache.clear()
 
@@ -1411,6 +1415,15 @@ if _OrderedDict is not None:
 
         def set(self, key, value):
             self.cache[key] = value
+            while len(self.cache) > self.size:
+                try:
+                    self.cache.popitem(False)
+                except KeyError:
+                    pass
+
+        # [CPYPARSING] add update
+        def update(self, update_dict):
+            self.cache.update(update_dict)
             while len(self.cache) > self.size:
                 try:
                     self.cache.popitem(False)
@@ -2164,7 +2177,7 @@ class ParserElement(object):
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], next_linebreak_loc)
 
     # [CPYPARSING] add _parseIncremental
-    _should_cache_incremental_success = True  # experimentally determined
+    _incremental_parent_success_obj = [None]
     def _parseIncremental(self, instring, loc, doActions=True, callPreParse=True):
         """Version of ParserElement._parseCache that can reuse caches from common prefix/suffix parses."""
         # determine the prefixes and suffixes to check for caches
@@ -2206,7 +2219,7 @@ class ParserElement(object):
                     prefix_lookup = (self, other_instring, loc, callPreParse, doActions, packrat_context)
                     cache_result = cache.get(prefix_lookup)
                     if cache_result is not cache.not_in_cache:
-                        cache_furthest_loc, cache_item = cache_result
+                        cache_furthest_loc, cache_item, cache_parent_success_obj = cache_result
                         if (
                             # if other_instring is instring
                             is_instring
@@ -2228,7 +2241,7 @@ class ParserElement(object):
                     suffix_lookup = (self, other_instring, loc_in_suffix, callPreParse, doActions, packrat_context)
                     cache_result = cache.get(suffix_lookup)
                     if cache_result is not cache.not_in_cache:
-                        cache_furthest_loc, cache_item = cache_result
+                        cache_furthest_loc, cache_item, cache_parent_success_obj = cache_result
                         # the conditions above ensure that if we've gotten here,
                         #  we can always use this result
                         hit = cache_item
@@ -2254,6 +2267,7 @@ class ParserElement(object):
                 lookup = (self, instring, loc, callPreParse, doActions, packrat_context)
             # _parseIncremental only caches the minimum necessary information to limit
             #  the memory footprint of very large caches
+            outer_parent_success_obj, ParserElement._incremental_parent_success_obj = ParserElement._incremental_parent_success_obj, [None]
             try:
                 # loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
                 # [CPYPARSING] START INLINE _parseNoCache
@@ -2347,21 +2361,25 @@ class ParserElement(object):
                 # [CPYPARSING] END INLINE _parseNoCache
                 new_loc, ret_toks = loc, retTokens
             except ParseBaseException as err:
+                ParserElement._incremental_parent_success_obj[0] = False
                 if hit is not True:
                     # update furthest_loc
                     ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], err.loc)
                     # on failure, cache (furthest loc, exception loc)
-                    cache.set(lookup, (ParserElement._furthest_locs[instring], err.loc))
+                    cache.set(lookup, (ParserElement._furthest_locs[instring], err.loc, outer_parent_success_obj))
                 raise
             else:
+                ParserElement._incremental_parent_success_obj[0] = True
                 if hit is not True:
                     # update furthest_loc
                     ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
                     # since we just recompute the parse action anyway on a success, we don't have to cache them
                     if ParserElement._should_cache_incremental_success:
                         # on success, cache (furthest loc, True)
-                        cache.set(lookup, (ParserElement._furthest_locs[instring], True))
+                        cache.set(lookup, (ParserElement._furthest_locs[instring], True, outer_parent_success_obj))
                 return new_loc, ret_toks
+            finally:
+                ParserElement._incremental_parent_success_obj = outer_parent_success_obj
 
     _parse = _parseNoCache
 
@@ -2381,7 +2399,11 @@ class ParserElement(object):
     _incrementalEnabled = False
     _incrementalWithResets = False
     @staticmethod
-    def enableIncremental(cache_size_limit=None, still_reset_cache=False):
+    def enableIncremental(
+        cache_size_limit=None,
+        still_reset_cache=False,
+        cache_successes=True,  # experimentally determined
+    ):
         """Enable incremental parsing mode where caches from common prefix/suffix parses are reused.
 
         Note that incremental mode does not fully preserve parse exception error messages."""
@@ -2399,6 +2421,7 @@ class ParserElement(object):
             ParserElement._parse = ParserElement._parseIncremental
 
         ParserElement._incrementalWithResets = still_reset_cache
+        ParserElement._should_cache_incremental_success = cache_successes
 
     _packratEnabled = False
     @staticmethod
