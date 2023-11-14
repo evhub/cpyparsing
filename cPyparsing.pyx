@@ -38,10 +38,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.2.6"
-__versionTime__ = "14 Nov 2023 00:58 UTC"
+__version__ = "2.4.7.2.2.7"
+__versionTime__ = "14 Nov 2023 06:39 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1330
+_WRAP_CALL_LINE_NUM = 1328
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -79,8 +79,6 @@ from contextlib import contextmanager
 from os.path import commonprefix
 # [CPYPARSING] import defaultdict
 from collections import defaultdict
-# [CPYPARSING] import MethodType
-from types import MethodType
 
 try:
     # Python 3
@@ -478,9 +476,9 @@ class RecursiveGrammarException(Exception):
 #         if obj is None:
 #             return self
 #         if sys.version_info < (3,):
-#             method_func = MethodType(self.safe_func, obj, objtype)
+#             method_func = types.MethodType(self.safe_func, obj, objtype)
 #         else:
-#             method_func = MethodType(self.safe_func, obj)
+#             method_func = types.MethodType(self.safe_func, obj)
 #         return returns_excs(method_func)
 
 #     def __call__(self, *args, **kwargs):
@@ -1552,7 +1550,7 @@ class ParserElement(object):
         # [CPYPARSING] collect parse element indices
         if ParserElement._all_parse_elements is not None:
             self.parse_element_index = len(ParserElement._all_parse_elements)
-            ParserElement._all_parse_elements.append(self)
+            ParserElement._all_parse_elements.append(wkref(self))
 
     def copy(self):
         """
@@ -2016,7 +2014,7 @@ class ParserElement(object):
     packrat_cache_lock = RLock()
     packrat_cache_stats = [0, 0]
     # [CPYPARSING] add packrat_context
-    packrat_context = []
+    packrat_context = ()
 
     # # [CPYPARSING] make safe
     # # this method gets repeatedly called during backtracking with the same arguments -
@@ -2024,8 +2022,8 @@ class ParserElement(object):
     # @returns_excs
     # def _parseCache(self, instring, loc, doActions=True, callPreParse=True):
     #     # [CPYPARSING] HIT, MISS are constants
-    #     # [CPYPARSING] include packrat_context
-    #     lookup = (self, instring, loc, callPreParse, doActions, tuple(ParserElement.packrat_context))
+    #     # [CPYPARSING] include packrat_context, merge callPreParse and doActions
+    #     lookup = (self, instring, loc, callPreParse | doActions << 1, ParserElement.packrat_context)
     #     with ParserElement.packrat_cache_lock:
     #         cache = ParserElement.packrat_cache
     #         value = cache.get(lookup)
@@ -2051,8 +2049,8 @@ class ParserElement(object):
     #             return value[0], value[1].copy()
     def _parseCache(self, instring, loc, doActions=True, callPreParse=True):
         # [CPYPARSING] HIT, MISS are constants
-        # [CPYPARSING] include packrat_context
-        lookup = (self, instring, loc, callPreParse, doActions, tuple(ParserElement.packrat_context))
+        # [CPYPARSING] include packrat_context, merge callPreParse and doActions
+        lookup = (self, instring, loc, callPreParse | doActions << 1, ParserElement.packrat_context)
         with ParserElement.packrat_cache_lock:
             cache = ParserElement.packrat_cache
             value = cache.get(lookup)
@@ -2177,9 +2175,10 @@ class ParserElement(object):
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], next_linebreak_loc)
 
     # [CPYPARSING] add _parseIncremental
-    _incremental_parent_success_obj = [None]
+    _incremental_parent_usefullness_obj = [False]  # caches at start loc can't be reused, so start usefullness at False
     def _parseIncremental(self, instring, loc, doActions=True, callPreParse=True):
-        """Version of ParserElement._parseCache that can reuse caches from common prefix/suffix parses."""
+        """Version of ParserElement._parseCache that can reuse caches from common prefix/suffix parses.
+        Note that unlike _parseCache, _parseIncremental is not thread-safe."""
         # determine the prefixes and suffixes to check for caches
         prefixes_and_suffixes = ParserElement._instring_prefixes_and_suffixes.get(instring)
         if prefixes_and_suffixes is None:  # this should only happen once per instring
@@ -2197,109 +2196,93 @@ class ParserElement(object):
             prefixes_and_suffixes.sort(key=lambda s_pl_sl: sum(s_pl_sl[1:]), reverse=True)
             ParserElement._instring_prefixes_and_suffixes[instring] = prefixes_and_suffixes
 
-        with ParserElement.packrat_cache_lock:
-            # update furthest_loc
-            ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc)
+        lookup_bools = callPreParse | doActions << 1
+        # with ParserElement.packrat_cache_lock:
 
-            cache = ParserElement.packrat_cache
-            packrat_context = tuple(ParserElement.packrat_context)
+        # update furthest_loc
+        ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc)
 
-            # try to find a hit
-            hit = None
-            for other_instring, prefix_len, suffix_len in prefixes_and_suffixes:
-                is_instring = prefix_len == len(instring)
+        cache = ParserElement.packrat_cache
 
-                # look for prefix hit
-                if (
-                    # always check instring itself here
-                    is_instring
-                    # or if we're in the common prefix (and not at the end of it)
-                    or loc < prefix_len - 1
-                ):
-                    prefix_lookup = (self, other_instring, loc, callPreParse, doActions, packrat_context)
-                    cache_result = cache.get(prefix_lookup)
-                    if cache_result is not cache.not_in_cache:
-                        cache_furthest_loc, cache_item, cache_parent_success_obj = cache_result
-                        if (
-                            # if other_instring is instring
-                            is_instring
-                            # or we never looked past the end of the prefix
-                            or cache_furthest_loc < prefix_len - 1
-                            # then we can use this result
-                        ):
-                            hit = cache_item
-                            break
+        # try to find a hit
+        hit = None
+        for other_instring, prefix_len, suffix_len in prefixes_and_suffixes:
+            is_instring = prefix_len == len(instring)
 
-                # otherwise look for suffix hit
-                if (
-                    # don't recheck instring itself
-                    not is_instring
-                    # only check if we're in the common suffix (and not at the start of it)
-                    and loc > len(instring) - suffix_len
-                ):
-                    loc_in_suffix = len(other_instring) - (len(instring) - loc)
-                    suffix_lookup = (self, other_instring, loc_in_suffix, callPreParse, doActions, packrat_context)
-                    cache_result = cache.get(suffix_lookup)
-                    if cache_result is not cache.not_in_cache:
-                        cache_furthest_loc, cache_item, cache_parent_success_obj = cache_result
-                        # the conditions above ensure that if we've gotten here,
-                        #  we can always use this result
+            # look for prefix hit
+            if (
+                # always check instring itself here
+                is_instring
+                # or if we're in the common prefix (and not at the end of it)
+                or loc < prefix_len - 1
+            ):
+                prefix_lookup = (self, other_instring, loc, lookup_bools, ParserElement.packrat_context)
+                cache_result = cache.get(prefix_lookup)
+                if cache_result is not cache.not_in_cache:
+                    cache_furthest_loc, cache_item, cache_usefullness_obj = cache_result
+                    if (
+                        # if other_instring is instring
+                        is_instring
+                        # or we never looked past the end of the prefix
+                        or cache_furthest_loc < prefix_len - 1
+                        # then we can use this result
+                    ):
+                        # we just used this cache item, so it's definitely useful
+                        cache_usefullness_obj[0] = True
                         hit = cache_item
                         break
 
-            # handle the hit if we got one
-            if hit is not None:
-                ParserElement.packrat_cache_stats[HIT] += 1
-                # defer handling success until later so we can inline
-                # if hit is True:  # success
-                #     # if we found a successful parse, unlike _parseCache, we still
-                #     #  need to actually run the parse actions since they might be greedy
-                #     #  actions that need to actually be called in this parse
-                #     return self._parseNoCache(instring, loc, doActions, callPreParse)
-                if hit is not True:  # failure; hit is exception loc
-                    # unlike _parseCache, we don't cache the full exception,
-                    #  so we need to rebuild it here, which can make exceptions a bit wonky
-                    raise ParseException(instring, hit, self.errmsg, self)
+            # otherwise look for suffix hit
+            if (
+                # don't recheck instring itself
+                not is_instring
+                # only check if we're in the common suffix (and not at the start of it)
+                and loc > len(instring) - suffix_len
+            ):
+                loc_in_suffix = len(other_instring) - (len(instring) - loc)
+                suffix_lookup = (self, other_instring, loc_in_suffix, lookup_bools, ParserElement.packrat_context)
+                cache_result = cache.get(suffix_lookup)
+                if cache_result is not cache.not_in_cache:
+                    cache_furthest_loc, cache_item, cache_usefullness_obj = cache_result
+                    # we just used this cache item, so it's definitely useful
+                    cache_usefullness_obj[0] = True
+                    # the conditions above ensure that if we've gotten here,
+                    #  we can always use this result
+                    hit = cache_item
+                    break
 
-            if hit is not True:
-                # otherwise do miss behavior
-                ParserElement.packrat_cache_stats[MISS] += 1
-                lookup = (self, instring, loc, callPreParse, doActions, packrat_context)
-            # _parseIncremental only caches the minimum necessary information to limit
-            #  the memory footprint of very large caches
-            outer_parent_success_obj, ParserElement._incremental_parent_success_obj = ParserElement._incremental_parent_success_obj, [None]
-            try:
-                # loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
-                # [CPYPARSING] START INLINE _parseNoCache
+        # handle the hit if we got one
+        if hit is not None:
+            ParserElement.packrat_cache_stats[HIT] += 1
+            # defer handling success until later so we can inline
+            # if hit is True:  # success
+            #     # if we found a successful parse, unlike _parseCache, we still
+            #     #  need to actually run the parse actions since they might be greedy
+            #     #  actions that need to actually be called in this parse
+            #     return self._parseNoCache(instring, loc, doActions, callPreParse)
+            if hit is not True:  # failure; hit is exception loc
+                # unlike _parseCache, we don't cache the full exception,
+                #  so we need to rebuild it here, which can make exceptions a bit wonky
+                raise ParseException(instring, hit, self.errmsg, self)
 
-                # [CPYPARSING] TRY, MATCH, FAIL are constants
-                debugging = (self.debug)  # and doActions)
+        if hit is not True:
+            # otherwise do miss behavior
+            ParserElement.packrat_cache_stats[MISS] += 1
+            lookup = (self, instring, loc, lookup_bools, ParserElement.packrat_context)
+        # by default, assume inner caches aren't useful
+        outer_parent_usefullness_obj, ParserElement._incremental_parent_usefullness_obj = ParserElement._incremental_parent_usefullness_obj, [False]
+        try:
+            # loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
+            # [CPYPARSING] START INLINE _parseNoCache
 
-                if debugging or self.failAction:
-                    # ~ print ("Match", self, "at loc", loc, "(%d, %d)" % (lineno(loc, instring), col(loc, instring)))
-                    if self.debugActions[TRY]:
-                        self.debugActions[TRY](instring, loc, self)
-                    try:
-                        if callPreParse and self.callPreparse:
-                            preloc = self.preParse(instring, loc)
-                        else:
-                            preloc = loc
-                        tokensStart = preloc
-                        if self.mayIndexError or preloc >= len(instring):
-                            try:
-                                loc, tokens = self.parseImpl(instring, preloc, doActions)
-                            except IndexError:
-                                raise ParseException(instring, len(instring), self.errmsg, self)
-                        else:
-                            loc, tokens = self.parseImpl(instring, preloc, doActions)
-                    except Exception as err:
-                        # ~ print ("Exception raised:", err)
-                        if self.debugActions[FAIL]:
-                            self.debugActions[FAIL](instring, tokensStart, self, err)
-                        if self.failAction:
-                            self.failAction(instring, tokensStart, self, err)
-                        raise
-                else:
+            # [CPYPARSING] TRY, MATCH, FAIL are constants
+            debugging = (self.debug)  # and doActions)
+
+            if debugging or self.failAction:
+                # ~ print ("Match", self, "at loc", loc, "(%d, %d)" % (lineno(loc, instring), col(loc, instring)))
+                if self.debugActions[TRY]:
+                    self.debugActions[TRY](instring, loc, self)
+                try:
                     if callPreParse and self.callPreparse:
                         preloc = self.preParse(instring, loc)
                     else:
@@ -2312,32 +2295,33 @@ class ParserElement(object):
                             raise ParseException(instring, len(instring), self.errmsg, self)
                     else:
                         loc, tokens = self.parseImpl(instring, preloc, doActions)
+                except Exception as err:
+                    # ~ print ("Exception raised:", err)
+                    if self.debugActions[FAIL]:
+                        self.debugActions[FAIL](instring, tokensStart, self, err)
+                    if self.failAction:
+                        self.failAction(instring, tokensStart, self, err)
+                    raise
+            else:
+                if callPreParse and self.callPreparse:
+                    preloc = self.preParse(instring, loc)
+                else:
+                    preloc = loc
+                tokensStart = preloc
+                if self.mayIndexError or preloc >= len(instring):
+                    try:
+                        loc, tokens = self.parseImpl(instring, preloc, doActions)
+                    except IndexError:
+                        raise ParseException(instring, len(instring), self.errmsg, self)
+                else:
+                    loc, tokens = self.parseImpl(instring, preloc, doActions)
 
-                tokens = self.postParse(instring, loc, tokens)
+            tokens = self.postParse(instring, loc, tokens)
 
-                retTokens = ParseResults(tokens, self.resultsName, asList=self.saveAsList, modal=self.modalResults)
-                if self.parseAction and (doActions or self.callDuringTry):
-                    if debugging:
-                        try:
-                            for fn in self.parseAction:
-                                try:
-                                    tokens = fn(instring, tokensStart, retTokens)
-                                except IndexError as parse_action_exc:
-                                    exc = ParseException("exception raised in parse action")
-                                    exc.__cause__ = parse_action_exc
-                                    raise exc
-
-                                if tokens is not None and tokens is not retTokens:
-                                    retTokens = ParseResults(tokens,
-                                                            self.resultsName,
-                                                            asList=self.saveAsList and isinstance(tokens, (ParseResults, list)),
-                                                            modal=self.modalResults)
-                        except Exception as err:
-                            # ~ print "Exception raised in user parse action:", err
-                            if self.debugActions[FAIL]:
-                                self.debugActions[FAIL](instring, tokensStart, self, err)
-                            raise
-                    else:
+            retTokens = ParseResults(tokens, self.resultsName, asList=self.saveAsList, modal=self.modalResults)
+            if self.parseAction and (doActions or self.callDuringTry):
+                if debugging:
+                    try:
                         for fn in self.parseAction:
                             try:
                                 tokens = fn(instring, tokensStart, retTokens)
@@ -2351,35 +2335,59 @@ class ParserElement(object):
                                                         self.resultsName,
                                                         asList=self.saveAsList and isinstance(tokens, (ParseResults, list)),
                                                         modal=self.modalResults)
-                if debugging:
-                    # ~ print ("Matched", self, "->", retTokens.asList())
-                    if self.debugActions[MATCH]:
-                        self.debugActions[MATCH](instring, tokensStart, loc, self, retTokens)
+                    except Exception as err:
+                        # ~ print "Exception raised in user parse action:", err
+                        if self.debugActions[FAIL]:
+                            self.debugActions[FAIL](instring, tokensStart, self, err)
+                        raise
+                else:
+                    for fn in self.parseAction:
+                        try:
+                            tokens = fn(instring, tokensStart, retTokens)
+                        except IndexError as parse_action_exc:
+                            exc = ParseException("exception raised in parse action")
+                            exc.__cause__ = parse_action_exc
+                            raise exc
 
-                # return loc, retTokens
+                        if tokens is not None and tokens is not retTokens:
+                            retTokens = ParseResults(tokens,
+                                                    self.resultsName,
+                                                    asList=self.saveAsList and isinstance(tokens, (ParseResults, list)),
+                                                    modal=self.modalResults)
+            if debugging:
+                # ~ print ("Matched", self, "->", retTokens.asList())
+                if self.debugActions[MATCH]:
+                    self.debugActions[MATCH](instring, tokensStart, loc, self, retTokens)
 
-                # [CPYPARSING] END INLINE _parseNoCache
-                new_loc, ret_toks = loc, retTokens
-            except ParseBaseException as err:
-                ParserElement._incremental_parent_success_obj[0] = False
-                if hit is not True:
-                    # update furthest_loc
-                    ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], err.loc)
-                    # on failure, cache (furthest loc, exception loc)
-                    cache.set(lookup, (ParserElement._furthest_locs[instring], err.loc, outer_parent_success_obj))
-                raise
-            else:
-                ParserElement._incremental_parent_success_obj[0] = True
-                if hit is not True:
-                    # update furthest_loc
-                    ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
-                    # since we just recompute the parse action anyway on a success, we don't have to cache them
-                    if ParserElement._should_cache_incremental_success:
-                        # on success, cache (furthest loc, True)
-                        cache.set(lookup, (ParserElement._furthest_locs[instring], True, outer_parent_success_obj))
-                return new_loc, ret_toks
-            finally:
-                ParserElement._incremental_parent_success_obj = outer_parent_success_obj
+            # return loc, retTokens
+
+            # [CPYPARSING] END INLINE _parseNoCache
+            new_loc, ret_toks = loc, retTokens
+
+        # _parseIncremental only caches the minimum necessary information to limit
+        #  the memory footprint of very large caches
+        except ParseBaseException as err:
+            # if we're caching a failure for us, then any inner cache items probably won't be needed
+            # ParserElement._incremental_parent_usefullness_obj[0] = False  # not necessary because it's our default assumption
+            if hit is not True:
+                # update furthest_loc
+                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], err.loc)
+                # on failure, cache (furthest loc, exception loc)
+                cache.set(lookup, (ParserElement._furthest_locs[instring], err.loc, outer_parent_usefullness_obj))
+            raise
+        else:
+            # but if we're caching a success for us, then we will need inner cache items to reparse
+            ParserElement._incremental_parent_usefullness_obj[0] = True
+            if hit is not True:
+                # update furthest_loc
+                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
+                # since we just recompute the parse action anyway on a success, we don't have to cache them
+                if ParserElement._should_cache_incremental_success:
+                    # on success, cache (furthest loc, True)
+                    cache.set(lookup, (ParserElement._furthest_locs[instring], True, outer_parent_usefullness_obj))
+            return new_loc, ret_toks
+        finally:
+            ParserElement._incremental_parent_usefullness_obj = outer_parent_usefullness_obj
 
     _parse = _parseNoCache
 
