@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.7"
-__versionTime__ = "15 Nov 2023 03:26 UTC"
+__versionTime__ = "15 Nov 2023 08:05 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1328
 
@@ -5217,7 +5217,6 @@ class MatchFirst(ParseExpression):
                 raise maxException
             else:
                 raise ParseException(instring, loc, "no defined alternatives to match", self)
-
 
     def __ior__(self, other):
         if isinstance(other, basestring):

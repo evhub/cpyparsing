@@ -54,7 +54,10 @@ build:
 	python ./setup.py sdist bdist_wheel
 
 .PHONY: upload-current
-upload-current: install build
+upload-current: install build just-upload
+
+.PHONY: just-upload
+just-upload:
 	python -m pip install --upgrade twine
 	python -m twine upload dist/* -u __token__
 
