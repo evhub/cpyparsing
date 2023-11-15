@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.7"
-__versionTime__ = "14 Nov 2023 07:55 UTC"
+__versionTime__ = "15 Nov 2023 03:26 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1328
 
@@ -5186,6 +5186,15 @@ class MatchFirst(ParseExpression):
                 e = ind_or_e
             try:
                 ret = e._parse(instring, loc, doActions)
+            except ParseException as err:
+                if err.loc > maxExcLoc:
+                    maxException = err
+                    maxExcLoc = err.loc
+            except IndexError:
+                if len(instring) > maxExcLoc:
+                    maxException = ParseException(instring, len(instring), e.errmsg, self)
+                    maxExcLoc = len(instring)
+            else:
                 if self.adaptive_usage is not None:
                     self.adaptive_usage[ind] += self.usage_weight
                 if self.adaptive_mode and i > 0:
@@ -5200,14 +5209,6 @@ class MatchFirst(ParseExpression):
                     ):
                         self.expr_order[i-1], self.expr_order[i] = self.expr_order[i], self.expr_order[i-1]
                 return ret
-            except ParseException as err:
-                if err.loc > maxExcLoc:
-                    maxException = err
-                    maxExcLoc = err.loc
-            except IndexError:
-                if len(instring) > maxExcLoc:
-                    maxException = ParseException(instring, len(instring), e.errmsg, self)
-                    maxExcLoc = len(instring)
 
         # only got here if no expression matched, raise exception for match that made it the furthest
         else:
