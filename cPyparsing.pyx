@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.9"
-__versionTime__ = "17 Nov 2023 08:41 UTC"
+__versionTime__ = "17 Nov 2023 09:25 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1328
 
@@ -2018,7 +2018,7 @@ class ParserElement(object):
     packrat_cache_lock = RLock()
     packrat_cache_stats = [0, 0]
     # [CPYPARSING] add packrat_context
-    packrat_context = frozenset()
+    packrat_context = None
 
     # # [CPYPARSING] make safe
     # # this method gets repeatedly called during backtracking with the same arguments -
