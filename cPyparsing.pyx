@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.2.7"
-__versionTime__ = "15 Nov 2023 08:05 UTC"
+__version__ = "2.4.7.2.2.8"
+__versionTime__ = "17 Nov 2023 05:53 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1328
 
@@ -1579,6 +1579,10 @@ class ParserElement(object):
         cpy.ignoreExprs = self.ignoreExprs[:]
         if self.copyDefaultWhiteChars:
             cpy.whiteChars = ParserElement.DEFAULT_WHITE_CHARS
+        # [CPYPARSING] get new parse element index
+        if ParserElement._all_parse_elements is not None:
+            cpy.parse_element_index = len(ParserElement._all_parse_elements)
+            ParserElement._all_parse_elements.append(wkref(cpy))
         return cpy
 
     def setName(self, name):
@@ -2014,7 +2018,7 @@ class ParserElement(object):
     packrat_cache_lock = RLock()
     packrat_cache_stats = [0, 0]
     # [CPYPARSING] add packrat_context
-    packrat_context = ()
+    packrat_context = frozenset()
 
     # # [CPYPARSING] make safe
     # # this method gets repeatedly called during backtracking with the same arguments -

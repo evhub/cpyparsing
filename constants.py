@@ -47,7 +47,7 @@ def get_bool_env_var(env_var, default=False):
 # when releasing a new version, create a release on github
 #  and make upload-current on all platforms
 pyparsing_version = "2.4.7"
-development_version = "2.2.7"
+development_version = "2.2.8"
 
 wrap_call_line = "                ret = func(*args[limit[0]:])"
 
