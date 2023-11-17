@@ -47,6 +47,9 @@ def get_bool_env_var(env_var, default=False):
 # when releasing a new version, create a release on github
 #  and make upload-current on all platforms
 pyparsing_version = "2.4.7"
+
+# any incompatibility with prior Coconut versions must lead
+#  to a minor or major version increment
 development_version = "2.2.9"
 
 wrap_call_line = "                ret = func(*args[limit[0]:])"
