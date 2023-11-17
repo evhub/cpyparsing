@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.2.8"
-__versionTime__ = "17 Nov 2023 05:53 UTC"
+__versionTime__ = "17 Nov 2023 08:02 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1328
 
@@ -2273,8 +2273,8 @@ class ParserElement(object):
             # otherwise do miss behavior
             ParserElement.packrat_cache_stats[MISS] += 1
             lookup = (self, instring, loc, lookup_bools, ParserElement.packrat_context)
-        # by default, assume inner caches aren't useful
-        outer_parent_usefullness_obj, ParserElement._incremental_parent_usefullness_obj = ParserElement._incremental_parent_usefullness_obj, [False]
+        # by default, assume inner caches are useful, so they don't get cleared inside this parse
+        outer_parent_usefullness_obj, ParserElement._incremental_parent_usefullness_obj = ParserElement._incremental_parent_usefullness_obj, [True]
         try:
             # loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
             # [CPYPARSING] START INLINE _parseNoCache
@@ -2371,8 +2371,8 @@ class ParserElement(object):
         # _parseIncremental only caches the minimum necessary information to limit
         #  the memory footprint of very large caches
         except ParseBaseException as err:
-            # if we're caching a failure for us, then any inner cache items probably won't be needed
-            # ParserElement._incremental_parent_usefullness_obj[0] = False  # not necessary because it's our default assumption
+            # if we're caching a failure for the outer parse, then any inner cache items probably won't be needed
+            ParserElement._incremental_parent_usefullness_obj[0] = False
             if hit is not True:
                 # update furthest_loc
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], err.loc)
@@ -2380,8 +2380,8 @@ class ParserElement(object):
                 cache.set(lookup, (ParserElement._furthest_locs[instring], err.loc, outer_parent_usefullness_obj))
             raise
         else:
-            # but if we're caching a success for us, then we will need inner cache items to reparse
-            ParserElement._incremental_parent_usefullness_obj[0] = True
+            # but if we're caching a success for the outer parse, then we will need inner cache items to reparse
+            # ParserElement._incremental_parent_usefullness_obj[0] = True  # not necessary because it's our default assumption
             if hit is not True:
                 # update furthest_loc
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
