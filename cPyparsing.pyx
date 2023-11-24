@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.2.10"
-__versionTime__ = "24 Nov 2023 01:42 UTC"
+__version__ = "2.4.7.2.3.0"
+__versionTime__ = "24 Nov 2023 01:45 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1328
 
@@ -2018,7 +2018,7 @@ class ParserElement(object):
     packrat_cache_lock = RLock()
     packrat_cache_stats = [0, 0]
     # [CPYPARSING] add packrat_context
-    packrat_context = []
+    packrat_context = None
 
     # # [CPYPARSING] make safe
     # # this method gets repeatedly called during backtracking with the same arguments -
@@ -2054,7 +2054,7 @@ class ParserElement(object):
     def _parseCache(self, instring, loc, doActions=True, callPreParse=True):
         # [CPYPARSING] HIT, MISS are constants
         # [CPYPARSING] include packrat_context, merge callPreParse and doActions
-        lookup = (self, instring, loc, callPreParse | doActions << 1, tuple(ParserElement.packrat_context))
+        lookup = (self, instring, loc, callPreParse | doActions << 1, ParserElement.packrat_context)
         with ParserElement.packrat_cache_lock:
             cache = ParserElement.packrat_cache
             value = cache.get(lookup)
@@ -2220,7 +2220,7 @@ class ParserElement(object):
                 # or if we're in the common prefix (and not at the end of it)
                 or loc < prefix_len - 1
             ):
-                prefix_lookup = (self, other_instring, loc, lookup_bools, tuple(ParserElement.packrat_context))
+                prefix_lookup = (self, other_instring, loc, lookup_bools, ParserElement.packrat_context)
                 cache_result = cache.get(prefix_lookup)
                 if cache_result is not cache.not_in_cache:
                     cache_furthest_loc, cache_item, cache_usefullness_obj = cache_result
@@ -2244,7 +2244,7 @@ class ParserElement(object):
                 and loc > len(instring) - suffix_len
             ):
                 loc_in_suffix = len(other_instring) - (len(instring) - loc)
-                suffix_lookup = (self, other_instring, loc_in_suffix, lookup_bools, tuple(ParserElement.packrat_context))
+                suffix_lookup = (self, other_instring, loc_in_suffix, lookup_bools, ParserElement.packrat_context)
                 cache_result = cache.get(suffix_lookup)
                 if cache_result is not cache.not_in_cache:
                     cache_furthest_loc, cache_item, cache_usefullness_obj = cache_result
@@ -2272,7 +2272,7 @@ class ParserElement(object):
         if hit is not True:
             # otherwise do miss behavior
             ParserElement.packrat_cache_stats[MISS] += 1
-            lookup = (self, instring, loc, lookup_bools, tuple(ParserElement.packrat_context))
+            lookup = (self, instring, loc, lookup_bools, ParserElement.packrat_context)
         # by default, assume inner caches are useful, so they don't get cleared inside this parse
         outer_parent_usefullness_obj, ParserElement._incremental_parent_usefullness_obj = ParserElement._incremental_parent_usefullness_obj, [True]
         try:
