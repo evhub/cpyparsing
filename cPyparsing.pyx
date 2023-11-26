@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.3.1"
-__versionTime__ = "26 Nov 2023 00:07 UTC"
+__version__ = "2.4.7.2.3.2"
+__versionTime__ = "26 Nov 2023 05:57 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1328
 
@@ -5144,6 +5144,7 @@ class MatchFirst(ParseExpression):
     # [CPYPARSING] add adaptive mode constants
     adaptive_usage = None
     expr_order = None
+    using_expr_order = False
 
     # [CPYPARSING] add setAdaptiveMode
     @classmethod
@@ -5175,52 +5176,58 @@ class MatchFirst(ParseExpression):
 
         maxExcLoc = -1
         maxException = None
-        for i, ind_or_e in enumerate(self.expr_order if self.adaptive_mode else self.exprs):
-            if self.adaptive_mode:
-                ind = ind_or_e
+        if self.adaptive_mode:
+            outer_using_expr_order, self.using_expr_order = self.using_expr_order, True
+        try:
+            for i, ind_or_e in enumerate(self.expr_order if self.adaptive_mode else self.exprs):
+                if self.adaptive_mode:
+                    ind = ind_or_e
+                    try:
+                        e = self.exprs[ind]
+                    except IndexError:
+                        if self.allow_unused_expr_order:
+                            continue
+                        else:
+                            raise
+                else:
+                    ind = i
+                    e = ind_or_e
                 try:
-                    e = self.exprs[ind]
+                    ret = e._parse(instring, loc, doActions)
+                except ParseException as err:
+                    if err.loc > maxExcLoc:
+                        maxException = err
+                        maxExcLoc = err.loc
                 except IndexError:
-                    if self.allow_unused_expr_order:
-                        continue
-                    else:
-                        raise
-            else:
-                ind = i
-                e = ind_or_e
-            try:
-                ret = e._parse(instring, loc, doActions)
-            except ParseException as err:
-                if err.loc > maxExcLoc:
-                    maxException = err
-                    maxExcLoc = err.loc
-            except IndexError:
-                if len(instring) > maxExcLoc:
-                    maxException = ParseException(instring, len(instring), e.errmsg, self)
-                    maxExcLoc = len(instring)
-            else:
-                if self.adaptive_usage is not None:
-                    self.adaptive_usage[ind] += self.usage_weight
-                if self.adaptive_mode and i > 0:
-                    usage = self.adaptive_usage[ind]
-                    if (
-                        (
-                            not self.adaptive_usage_check_rate
-                            or usage < self.adaptive_usage_check_rate
-                            or usage % self.adaptive_usage_check_rate == 0
-                        )
-                        and usage > self.adaptive_usage[self.expr_order[i-1]]
-                    ):
-                        self.expr_order[i-1], self.expr_order[i] = self.expr_order[i], self.expr_order[i-1]
-                return ret
+                    if len(instring) > maxExcLoc:
+                        maxException = ParseException(instring, len(instring), e.errmsg, self)
+                        maxExcLoc = len(instring)
+                else:
+                    if self.adaptive_usage is not None:
+                        self.adaptive_usage[ind] += self.usage_weight
+                    if self.adaptive_mode and i > 0 and not outer_using_expr_order:
+                        usage = self.adaptive_usage[ind]
+                        if (
+                            (
+                                not self.adaptive_usage_check_rate
+                                or usage < self.adaptive_usage_check_rate
+                                or usage % self.adaptive_usage_check_rate == 0
+                            )
+                            and usage > self.adaptive_usage[self.expr_order[i-1]]
+                        ):
+                            self.expr_order[i-1], self.expr_order[i] = self.expr_order[i], self.expr_order[i-1]
+                    return ret
 
-        # only got here if no expression matched, raise exception for match that made it the furthest
-        else:
-            if maxException is not None:
-                maxException.msg = self.errmsg
-                raise maxException
+            # only got here if no expression matched, raise exception for match that made it the furthest
             else:
-                raise ParseException(instring, loc, "no defined alternatives to match", self)
+                if maxException is not None:
+                    maxException.msg = self.errmsg
+                    raise maxException
+                else:
+                    raise ParseException(instring, loc, "no defined alternatives to match", self)
+        finally:
+            if self.adaptive_mode:
+                self.using_expr_order = outer_using_expr_order
 
     def __ior__(self, other):
         if isinstance(other, basestring):
