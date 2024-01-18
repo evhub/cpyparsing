@@ -39,7 +39,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.3.2"
-__versionTime__ = "26 Nov 2023 23:06 UTC"
+__versionTime__ = "18 Jan 2024 04:27 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1328
 
@@ -2376,7 +2376,7 @@ class ParserElement(object):
             if hit is not True:
                 # update furthest_loc
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], err.loc)
-                # on failure, cache (furthest loc, exception loc)
+                # on failure, cache (furthest loc, exception loc, usefullness_obj)
                 cache.set(lookup, (ParserElement._furthest_locs[instring], err.loc, outer_parent_usefullness_obj))
             raise
         else:
@@ -2387,7 +2387,7 @@ class ParserElement(object):
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
                 # since we just recompute the parse action anyway on a success, we don't have to cache them
                 if ParserElement._should_cache_incremental_success:
-                    # on success, cache (furthest loc, True)
+                    # on success, cache (furthest loc, True, usefullness_obj)
                     cache.set(lookup, (ParserElement._furthest_locs[instring], True, outer_parent_usefullness_obj))
             return new_loc, ret_toks
         finally:

@@ -27,7 +27,7 @@ from warnings import warn
 # -----------------------------------------------------------------------------------------------------------------------
 
 
-def get_bool_env_var(env_var, default=False):
+def get_bool_env_var(env_var, default=None):
     """Get a boolean from an environment variable."""
     boolstr = os.getenv(env_var, "").lower()
     if boolstr in ("true", "yes", "on", "1", "t"):
@@ -49,7 +49,7 @@ def get_bool_env_var(env_var, default=False):
 pyparsing_version = "2.4.7"
 
 # any incompatibility with prior Coconut versions must lead
-#  to a minor or major version increment
+#  to a major or minor version increment
 development_version = "2.3.2"
 
 wrap_call_line = "                ret = func(*args[limit[0]:])"
