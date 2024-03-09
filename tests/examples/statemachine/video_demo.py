@@ -25,7 +25,7 @@ while True:
         continue
 
     if cmd in ('?', 'h', 'help'):
-        print('enter a transition {!r}'.format(videostate.VideoState.transition_names))
+        print(f'enter a transition {videostate.VideoState.transition_names!r}')
         print(' q - quit')
         print(' ?, h, help - this message')
         continue

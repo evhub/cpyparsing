@@ -24,7 +24,7 @@ include_directive = (INCLUDE + file_ref("include_file_name") + SEMI)
 seen = set()
 def read_include_contents(s, l, t):
     include_file_ref = t.include_file_name
-    include_echo = "/* {} */".format(pp.line(l, s).strip())
+    include_echo = f"/* {pp.line(l, s).strip()} */"
 
     # guard against recursive includes
     if include_file_ref not in seen:
@@ -34,7 +34,7 @@ def read_include_contents(s, l, t):
                 + include_directive.transformString(included_file_contents))
     else:
         lead = ' '*(pp.col(l, s) - 1)
-        return "/* recursive include! */\n{}{}".format(lead, include_echo)
+        return f"/* recursive include! */\n{lead}{include_echo}"
 
 # attach include processing method as parse action (parse-time callback)
 # to include_directive expression

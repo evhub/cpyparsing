@@ -53,7 +53,7 @@ def verify_length(s, l, t):
     if t.len is not None:
         t1len = len(t[1])
         if t1len != t.len:
-            raise pp.ParseFatalException(s, l, "invalid data of length {0}, expected {1}".format(t1len, t.len))
+            raise pp.ParseFatalException(s, l, f"invalid data of length {t1len}, expected {t.len}")
     return t[1]
 
 

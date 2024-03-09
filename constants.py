@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 #-----------------------------------------------------------------------------------------------------------------------
 # INFO:
@@ -15,10 +14,8 @@ Description: Constants for cPyparsing.
 # IMPORTS:
 #-----------------------------------------------------------------------------------------------------------------------
 
-from __future__ import print_function, absolute_import, unicode_literals, division
 
 import os.path
-from io import open
 from datetime import datetime
 from warnings import warn
 
@@ -36,7 +33,7 @@ def get_bool_env_var(env_var, default=None):
         return False
     else:
         if boolstr not in ("", "none", "default"):
-            warn("{env_var} has invalid value {value!r} (defaulting to {default})".format(env_var=env_var, value=os.getenv(env_var), default=default))
+            warn(f"{env_var} has invalid value {os.getenv(env_var)!r} (defaulting to {default})")
         return default
 
 
@@ -108,7 +105,7 @@ def update_file():
             if line.startswith(wrap_call_line):
                 wrap_call_line_num = i + 1
         if wrap_call_line_num is None:
-            raise IOError("failed to find " + repr(wrap_call_line) + " in " + file_name)
+            raise OSError("failed to find " + repr(wrap_call_line) + " in " + file_name)
 
         f.seek(0)
 
@@ -119,7 +116,7 @@ def update_file():
                 line = '__version__ = "' + version + '"\n'
                 if seen_version:
                     f.truncate()
-                    raise IOError("repeated __version__ in " + file_name)
+                    raise OSError("repeated __version__ in " + file_name)
                 seen_version = True
             elif line.startswith("__versionTime__ ="):
                 line = '__versionTime__ = "' + version_time + '"\n'

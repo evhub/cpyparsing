@@ -31,7 +31,7 @@ class CloseMatch(Token):
        close match of the given string, a tuple is returned giving the
        found close match, and a list of mismatch positions."""
     def __init__(self, seq, maxMismatches=1):
-        super(CloseMatch,self).__init__()
+        super().__init__()
         self.name = seq
         self.sequence = seq
         self.maxMismatches = maxMismatches
