@@ -39,9 +39,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.3.2"
-__versionTime__ = "18 Jan 2024 04:27 UTC"
+__versionTime__ = "04 May 2024 07:15 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1328
+_WRAP_CALL_LINE_NUM = 1331
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -150,16 +150,16 @@ __diag__.warn_name_set_on_empty_Forward = False
 __diag__.warn_on_multiple_string_args_to_oneof = False
 # [CPYPARSING] add warn_on_incremental_multiline_regex
 __diag__.warn_on_incremental_multiline_regex = False
+# [CPYPARSING] add warn_on_undefined_ParseResults_name
+__diag__.warn_on_undefined_ParseResults_name = False
 __diag__.enable_debug_on_named_expressions = False
 __diag__._all_names = [nm for nm in vars(__diag__) if nm.startswith("enable_") or nm.startswith("warn_")]
 
 def _enable_all_warnings():
-    __diag__.warn_multiple_tokens_in_named_alternation = True
-    __diag__.warn_ungrouped_named_tokens_in_collection = True
-    __diag__.warn_name_set_on_empty_Forward = True
-    __diag__.warn_on_multiple_string_args_to_oneof = True
-    # [CPYPARSING] add warn_on_incremental_multiline_regex
-    __diag__.warn_on_incremental_multiline_regex = True
+    # [CPYPARSING] use generic implementation
+    for name in __diag__._all_names:
+        if name.startswith("warn_"):
+            setattr(__diag__, name, True)
 __diag__.enable_all_warnings = _enable_all_warnings
 
 
@@ -853,6 +853,9 @@ class ParseResults(object):
         try:
             return self[name]
         except KeyError:
+            # [CPYPARSING] use warn_on_undefined_ParseResults_name
+            if __diag__.warn_on_undefined_ParseResults_name:
+                warnings.warn("attempt to access undefined name on ParseResults object: " + repr(name), stacklevel=1)
             return ""
 
     def __add__(self, other):
