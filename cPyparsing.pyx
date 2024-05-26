@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.3.2"
-__versionTime__ = "04 May 2024 07:15 UTC"
+__version__ = "2.4.7.2.3.3"
+__versionTime__ = "26 May 2024 06:37 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1331
 
@@ -2532,7 +2532,8 @@ class ParserElement(object):
         else:
             return tokens
 
-    def scanString(self, instring, maxMatches=_MAX_INT, overlap=False):
+    # [CPYPARSING] add maxStartLoc
+    def scanString(self, instring, maxMatches=_MAX_INT, overlap=False, maxStartLoc=None):
         """
         Scan the input string for expression matches.  Each match will return the
         matching tokens, start location, and end location.  May be called with optional
@@ -2571,6 +2572,9 @@ class ParserElement(object):
         if not self.keepTabs:
             instring = _ustr(instring).expandtabs()
         instrlen = len(instring)
+        # [CPYPARSING] use maxStartLoc
+        if maxStartLoc is not None:
+            instrlen = min(instrlen, maxStartLoc)
         loc = 0
         preparseFn = self.preParse
         parseFn = self._parse
@@ -2606,7 +2610,8 @@ class ParserElement(object):
                     exc.__traceback__ = self._trim_traceback(exc.__traceback__)
                 raise exc
 
-    def transformString(self, instring):
+    # [CPYPARSING] add kwargs
+    def transformString(self, instring, **kwargs):
         """
         Extension to :class:`scanString`, to modify matching text with modified tokens that may
         be returned from a parse action.  To use ``transformString``, define a grammar and
@@ -2632,7 +2637,8 @@ class ParserElement(object):
         # keep string locs straight between transformString and scanString
         self.keepTabs = True
         try:
-            for t, s, e in self.scanString(instring):
+            # [CPYPARSING] pass kwargs
+            for t, s, e in self.scanString(instring, **kwargs):
                 out.append(instring[lastE:s])
                 if t:
                     if isinstance(t, ParseResults):
