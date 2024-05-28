@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.3.3"
-__versionTime__ = "26 May 2024 06:37 UTC"
+__version__ = "2.4.7.2.4.0"
+__versionTime__ = "28 May 2024 01:16 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1331
 
@@ -2226,7 +2226,7 @@ class ParserElement(object):
                 prefix_lookup = (self, other_instring, loc, lookup_bools, ParserElement.packrat_context)
                 cache_result = cache.get(prefix_lookup)
                 if cache_result is not cache.not_in_cache:
-                    cache_furthest_loc, cache_item, cache_usefullness_obj = cache_result
+                    cache_item, cache_furthest_loc, cache_usefullness_obj = cache_result
                     if (
                         # if other_instring is instring
                         is_instring
@@ -2250,7 +2250,7 @@ class ParserElement(object):
                 suffix_lookup = (self, other_instring, loc_in_suffix, lookup_bools, ParserElement.packrat_context)
                 cache_result = cache.get(suffix_lookup)
                 if cache_result is not cache.not_in_cache:
-                    cache_furthest_loc, cache_item, cache_usefullness_obj = cache_result
+                    cache_item, cache_furthest_loc, cache_usefullness_obj = cache_result
                     # we just used this cache item, so it's definitely useful
                     cache_usefullness_obj[0] = True
                     # the conditions above ensure that if we've gotten here,
@@ -2261,16 +2261,20 @@ class ParserElement(object):
         # handle the hit if we got one
         if hit is not None:
             ParserElement.packrat_cache_stats[HIT] += 1
-            # defer handling success until later so we can inline
-            # if hit is True:  # success
-            #     # if we found a successful parse, unlike _parseCache, we still
-            #     #  need to actually run the parse actions since they might be greedy
-            #     #  actions that need to actually be called in this parse
-            #     return self._parseNoCache(instring, loc, doActions, callPreParse)
-            if hit is not True:  # failure; hit is exception loc
+            if hit is True:  # success
+                # defer handling success until later so we can inline
+                pass
+                # # if we found a successful parse, unlike _parseCache, we still
+                # #  need to actually run the parse actions since they might be greedy
+                # #  actions that need to actually be called in this parse
+                # return self._parseNoCache(instring, loc, doActions, callPreParse)
+            elif not ParserElement._incremental_hybrid_mode or isinstance(hit, int):   # failure; hit is exception loc
                 # unlike _parseCache, we don't cache the full exception,
                 #  so we need to rebuild it here, which can make exceptions a bit wonky
                 raise ParseException(instring, hit, self.errmsg, self)
+            else:  # hybrid success; hit is (new_loc, ret_toks)
+                new_loc, ret_toks = hit
+                return new_loc, ret_toks.copy()
 
         if hit is not True:
             # otherwise do miss behavior
@@ -2379,8 +2383,8 @@ class ParserElement(object):
             if hit is not True:
                 # update furthest_loc
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], err.loc)
-                # on failure, cache (furthest loc, exception loc, usefullness_obj)
-                cache.set(lookup, (ParserElement._furthest_locs[instring], err.loc, outer_parent_usefullness_obj))
+                # on failure, cache (exception loc, furthest loc, usefullness_obj)
+                cache.set(lookup, (err.loc, ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
             raise
         else:
             # but if we're caching a success for the outer parse, then we will need inner cache items to reparse
@@ -2388,10 +2392,14 @@ class ParserElement(object):
             if hit is not True:
                 # update furthest_loc
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
-                # since we just recompute the parse action anyway on a success, we don't have to cache them
-                if ParserElement._should_cache_incremental_success:
-                    # on success, cache (furthest loc, True, usefullness_obj)
-                    cache.set(lookup, (ParserElement._furthest_locs[instring], True, outer_parent_usefullness_obj))
+                # when not in hybrid mode, we don't have to cache ret_toks,
+                #  since we just recompute the parse action anyway on a success
+                if ParserElement._incremental_hybrid_mode:
+                    # on hybrid success, cache ((new_loc, ret_toks), furthest loc, usefullness_obj)
+                    cache.set(lookup, ((new_loc, ret_toks.copy()), ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
+                elif ParserElement._incremental_cache_successes:
+                    # on non-hybrid success, cache (True, furthest loc, usefullness_obj)
+                    cache.set(lookup, (True, ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
             return new_loc, ret_toks
         finally:
             ParserElement._incremental_parent_usefullness_obj = outer_parent_usefullness_obj
@@ -2418,10 +2426,13 @@ class ParserElement(object):
         cache_size_limit=None,
         still_reset_cache=False,
         cache_successes=True,  # experimentally determined
+        hybrid_mode=False,
     ):
         """Enable incremental parsing mode where caches from common prefix/suffix parses are reused.
 
         Note that incremental mode does not fully preserve parse exception error messages."""
+        assert not (not cache_successes and hybrid_mode), "hybrid_mode requires cache_successes"
+
         if not ParserElement._incrementalEnabled:
             ParserElement._incrementalEnabled = True
 
@@ -2436,7 +2447,21 @@ class ParserElement(object):
             ParserElement._parse = ParserElement._parseIncremental
 
         ParserElement._incrementalWithResets = still_reset_cache
-        ParserElement._should_cache_incremental_success = cache_successes
+        ParserElement._incremental_cache_successes = cache_successes
+        ParserElement._incremental_hybrid_mode = hybrid_mode
+
+    @staticmethod
+    def getIncrementalInfo():
+        if ParserElement._incrementalEnabled:
+            return {
+                "still_reset_cache": ParserElement._incrementalWithResets,
+                "cache_successes": ParserElement._incremental_cache_successes,
+                "hybrid_mode": ParserElement._incremental_hybrid_mode,
+            }
+        else:
+            return {
+                "still_reset_cache": ParserElement._incrementalWithResets,
+            }
 
     _packratEnabled = False
     @staticmethod
