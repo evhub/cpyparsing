@@ -38,8 +38,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.4.0"
-__versionTime__ = "28 May 2024 01:41 UTC"
+__version__ = "2.4.7.2.4.1"
+__versionTime__ = "15 Oct 2024 04:16 UTC"
 _FILE_NAME = "cPyparsing.pyx"
 _WRAP_CALL_LINE_NUM = 1331
 
@@ -2499,7 +2499,8 @@ class ParserElement(object):
                 ParserElement.packrat_cache = _FifoCache(cache_size_limit)
             ParserElement._parse = ParserElement._parseCache
 
-    def parseString(self, instring, parseAll=False):
+    # [CPYPARSING] add returnLoc
+    def parseString(self, instring, parseAll=False, returnLoc=False):
         """
         Execute the parse expression with the given string.
         This is the main interface to the client code, once the complete
@@ -2555,6 +2556,9 @@ class ParserElement(object):
                     exc.__traceback__ = self._trim_traceback(exc.__traceback__)
                 raise exc
         else:
+            # [CPYPARSING] implement returnLoc
+            if returnLoc:
+                return loc, tokens
             return tokens
 
     # [CPYPARSING] add maxStartLoc

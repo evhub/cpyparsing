@@ -50,7 +50,7 @@ pyparsing_version = "2.4.7"
 
 # any incompatibility with prior Coconut versions must lead
 #  to a major or minor version increment
-development_version = "2.4.0"
+development_version = "2.4.1"
 
 wrap_call_line = "                ret = func(*args[limit[0]:])"
 
