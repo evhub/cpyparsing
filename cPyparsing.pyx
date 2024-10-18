@@ -38,10 +38,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.4.1"
-__versionTime__ = "15 Oct 2024 04:16 UTC"
+__version__ = "2.4.7.2.4.2"
+__versionTime__ = "18 Oct 2024 07:33 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1331
+_WRAP_CALL_LINE_NUM = 1333
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -1325,6 +1325,8 @@ def _trim_arity(func, maxargs=2):
     # [CPYPARSING] use preprocessed constants
     pa_call_line_synth = (_FILE_NAME, _WRAP_CALL_LINE_NUM)
 
+    # [CPYPARSING] use wraps
+    @wraps(func)
     def wrapper(*args):
         while 1:
             try:
