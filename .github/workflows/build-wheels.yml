@@ -33,6 +33,11 @@ jobs:
           echo "CIBW_ARCHS_LINUX=aarch64" >> $GITHUB_ENV
           echo "CIBW_ARCHS_MACOS=arm64" >> $GITHUB_ENV
 
+      - name: Skip some python flavors on slow emulated linux builds
+        if: ${{ (runner.os == 'Linux') && (matrix.arch == 'arm64') }}
+        run: |
+          echo "CIBW_SKIP=*musllinux* pp* cp36-* cp37-* cp38-*" >> $GITHUB_ENV
+
       - name: Build wheels for ${{ matrix.os }}-${{ matrix.arch }}
         uses: pypa/cibuildwheel@v2.22.0
 
