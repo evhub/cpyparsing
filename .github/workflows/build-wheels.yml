@@ -9,27 +9,29 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-13, macos-14]
-        arch: [ 'x86_64', 'aarch64' ]
+        arch: [ 'x86_64', 'arm64' ]
         exclude:
           - os: windows-latest
-            arch: aarch64
+            arch: arm64
           - os: macos-13
-            arch: aarch64
+            arch: arm64
           - os: macos-14
-            arch: aarch64
+            arch: x86_64
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up QEMU
-        if: ${{ (runner.os == 'Linux') && (matrix.arch == 'aarch64') }}
+        if: ${{ (runner.os == 'Linux') && (matrix.arch == 'arm64') }}
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
 
-      - name: Set env for ${{ matrix.arch }}
+      - name: Sets env for arm64
+        if: matrix.arch == 'arm64'
         run: |
-          echo "CIBW_ARCHS_LINUX=${{ matrix.arch }}" >> $GITHUB_ENV
+          echo "CIBW_ARCHS_LINUX=aarch64" >> $GITHUB_ENV
+          echo "CIBW_ARCHS_MACOS=arm64" >> $GITHUB_ENV
 
       - name: Build wheels for ${{ matrix.os }}-${{ matrix.arch }}
         uses: pypa/cibuildwheel@v2.22.0
