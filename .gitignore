@@ -110,6 +110,3 @@ ENV/
 
 # Cython
 *.c
-
-# Claude
-.claude/
