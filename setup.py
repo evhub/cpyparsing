@@ -67,11 +67,11 @@ See cPyparsing's GitHub_ for more information.
     url="https://github.com/evhub/cpyparsing",
     author="Evan Hubinger",
     author_email="evanjhub@gmail.com",
+    license="Apache-2.0",
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Intended Audience :: Information Technology',
-        "License :: OSI Approved :: Apache Software License",
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
