@@ -1,8 +1,27 @@
 {
   "permissions": {
     "allow": [
+      "WebSearch",
       "Bash(cat:*)",
-      "Bash(make:*)"
+      "Bash(cd:*)",
+      "Bash(ls:*)",
+      "Bash(echo:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(findstr:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(gh:*)",
+      "Bash(pip:*)",
+      "Bash(log \")",
+      "Bash(test:*)",
+      "Bash(done)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:gist.github.com)",
+      "Bash(git status:*)",
+      "Bash(make:*)",
+      "Bash(conda:*)"
     ]
   }
 }
