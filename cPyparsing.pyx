@@ -39,9 +39,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
 __version__ = "2.4.7.2.4.3"
-__versionTime__ = "16 Feb 2026 04:51 UTC"
+__versionTime__ = "16 Feb 2026 09:38 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1342
+_WRAP_CALL_LINE_NUM = 1344
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -502,6 +502,7 @@ class RecursiveGrammarException(Exception):
 
 
 class _ParseResultsWithOffset(object):
+    # [CPYPARSING] add slots, getstate, setstate
     __slots__ = ['tup']
     def __init__(self, p1, p2):
         self.tup = (p1, p2)
@@ -511,6 +512,7 @@ class _ParseResultsWithOffset(object):
         return repr(self.tup[0])
     def setOffset(self, i):
         self.tup = (self.tup[0], i)
+    # [CPYPARSING] add slots, getstate, setstate
     def __getstate__(self):
         return self.tup
     def __setstate__(self, state):
@@ -2070,16 +2072,16 @@ class ParserElement(object):
     #             if isinstance(value, Exception):
     #                 return value
     #             return value[0], value[1].copy()
+    # [CPYPARSING] remove lock
     def _parseCache(self, instring, loc, doActions=True, callPreParse=True):
         # [CPYPARSING] HIT, MISS are constants
         # [CPYPARSING] include packrat_context, merge callPreParse and doActions
         lookup = (self, instring, loc, callPreParse | doActions << 1, ParserElement.packrat_context)
-        # [CPYPARSING] removed lock: dict ops are GIL-atomic in CPython;
-        # _parseIncremental already operates without a lock
         cache = ParserElement.packrat_cache
-        # [CPYPARSING] direct dict access bypasses wrapper method dispatch
+        # [CPYPARSING] direct cache.cache.get instead of cache.get
         cache_dict = cache.cache
         not_in_cache = cache.not_in_cache
+        # [CPYPARSING] direct cache.cache.get instead of cache.get
         value = cache_dict.get(lookup, not_in_cache)
         if value is not_in_cache:
             ParserElement.packrat_cache_stats[MISS] += 1
@@ -2254,6 +2256,7 @@ class ParserElement(object):
                 or loc < prefix_len - 1
             ):
                 prefix_lookup = (self, other_instring, loc, lookup_bools, ParserElement.packrat_context)
+                # [CPYPARSING] direct cache.cache.get instead of cache.get
                 cache_result = cache_dict.get(prefix_lookup, not_in_cache)
                 if cache_result is not not_in_cache:
                     cache_item, cache_furthest_loc, cache_usefullness_obj = cache_result
@@ -2278,6 +2281,7 @@ class ParserElement(object):
             ):
                 loc_in_suffix = len(other_instring) - (len(instring) - loc)
                 suffix_lookup = (self, other_instring, loc_in_suffix, lookup_bools, ParserElement.packrat_context)
+                # [CPYPARSING] direct cache.cache.get instead of cache.get
                 cache_result = cache_dict.get(suffix_lookup, not_in_cache)
                 if cache_result is not not_in_cache:
                     cache_item, cache_furthest_loc, cache_usefullness_obj = cache_result
