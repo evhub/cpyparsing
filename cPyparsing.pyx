@@ -38,10 +38,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.4.2"
-__versionTime__ = "15 Feb 2026 22:52 UTC"
+__version__ = "2.4.7.2.4.3"
+__versionTime__ = "16 Feb 2026 04:51 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1331
+_WRAP_CALL_LINE_NUM = 1342
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -86,10 +86,11 @@ try:
 except ImportError:
     from itertools import ifilterfalse as filterfalse
 
-try:
-    from _thread import RLock
-except ImportError:
-    from threading import RLock
+# [CPYPARSING] remove lock
+# try:
+#     from _thread import RLock
+# except ImportError:
+#     from threading import RLock
 
 try:
     # Python 3
@@ -501,6 +502,7 @@ class RecursiveGrammarException(Exception):
 
 
 class _ParseResultsWithOffset(object):
+    __slots__ = ['tup']
     def __init__(self, p1, p2):
         self.tup = (p1, p2)
     def __getitem__(self, i):
@@ -509,6 +511,10 @@ class _ParseResultsWithOffset(object):
         return repr(self.tup[0])
     def setOffset(self, i):
         self.tup = (self.tup[0], i)
+    def __getstate__(self):
+        return self.tup
+    def __setstate__(self, state):
+        self.tup = state
 
 class ParseResults(object):
     """Structured parse results, to provide multiple means of access to
@@ -961,12 +967,17 @@ class ParseResults(object):
         """
         Returns a new copy of a :class:`ParseResults` object.
         """
-        ret = ParseResults(self.__toklist)
-        # [CPYPARSING] fast copy tokdict
+        # [CPYPARSING] fast copy: bypass __new__/__init__ to avoid redundant
+        # isinstance checks, temporary dict allocations, and extra assignments
+        ret = object.__new__(ParseResults)
+        ret.__doinit = False
+        ret.__toklist = self.__toklist[:]
         ret.__tokdict = self.__tokdict.copy()
         ret.__parent = self.__parent
-        ret.__accumNames.update(self.__accumNames)
+        ret.__accumNames = self.__accumNames.copy()
         ret.__name = self.__name
+        ret.__asList = self.__asList
+        ret.__modal = self.__modal
         return ret
 
     def asXML(self, doctag=None, namedItemsOnly=False, indent="", formatted=True):
@@ -2022,7 +2033,8 @@ class ParserElement(object):
 
     # argument cache for optimizing repeated calls when backtracking through recursive expressions
     packrat_cache = {} # this is set later by enabledPackrat(); this is here so that resetCache() doesn't fail
-    packrat_cache_lock = RLock()
+    # [CPYPARSING] remove lock
+    # packrat_cache_lock = RLock()
     packrat_cache_stats = [0, 0]
     # [CPYPARSING] add packrat_context
     packrat_context = None
@@ -2062,43 +2074,27 @@ class ParserElement(object):
         # [CPYPARSING] HIT, MISS are constants
         # [CPYPARSING] include packrat_context, merge callPreParse and doActions
         lookup = (self, instring, loc, callPreParse | doActions << 1, ParserElement.packrat_context)
-        with ParserElement.packrat_cache_lock:
-            cache = ParserElement.packrat_cache
-            value = cache.get(lookup)
-            if value is cache.not_in_cache:
-                ParserElement.packrat_cache_stats[MISS] += 1
-                try:
-                    # value = self._parseNoCache(instring, loc, doActions, callPreParse)
-                    # [CPYPARSING] START INLINE _parseNoCache
+        # [CPYPARSING] removed lock: dict ops are GIL-atomic in CPython;
+        # _parseIncremental already operates without a lock
+        cache = ParserElement.packrat_cache
+        # [CPYPARSING] direct dict access bypasses wrapper method dispatch
+        cache_dict = cache.cache
+        not_in_cache = cache.not_in_cache
+        value = cache_dict.get(lookup, not_in_cache)
+        if value is not_in_cache:
+            ParserElement.packrat_cache_stats[MISS] += 1
+            try:
+                # value = self._parseNoCache(instring, loc, doActions, callPreParse)
+                # [CPYPARSING] START INLINE _parseNoCache
 
-                    # [CPYPARSING] TRY, MATCH, FAIL are constants
-                    debugging = (self.debug)  # and doActions)
+                # [CPYPARSING] TRY, MATCH, FAIL are constants
+                debugging = (self.debug)  # and doActions)
 
-                    if debugging or self.failAction:
-                        # ~ print ("Match", self, "at loc", loc, "(%d, %d)" % (lineno(loc, instring), col(loc, instring)))
-                        if self.debugActions[TRY]:
-                            self.debugActions[TRY](instring, loc, self)
-                        try:
-                            if callPreParse and self.callPreparse:
-                                preloc = self.preParse(instring, loc)
-                            else:
-                                preloc = loc
-                            tokensStart = preloc
-                            if self.mayIndexError or preloc >= len(instring):
-                                try:
-                                    loc, tokens = self.parseImpl(instring, preloc, doActions)
-                                except IndexError:
-                                    raise ParseException(instring, len(instring), self.errmsg, self)
-                            else:
-                                loc, tokens = self.parseImpl(instring, preloc, doActions)
-                        except Exception as err:
-                            # ~ print ("Exception raised:", err)
-                            if self.debugActions[FAIL]:
-                                self.debugActions[FAIL](instring, tokensStart, self, err)
-                            if self.failAction:
-                                self.failAction(instring, tokensStart, self, err)
-                            raise
-                    else:
+                if debugging or self.failAction:
+                    # ~ print ("Match", self, "at loc", loc, "(%d, %d)" % (lineno(loc, instring), col(loc, instring)))
+                    if self.debugActions[TRY]:
+                        self.debugActions[TRY](instring, loc, self)
+                    try:
                         if callPreParse and self.callPreparse:
                             preloc = self.preParse(instring, loc)
                         else:
@@ -2111,32 +2107,33 @@ class ParserElement(object):
                                 raise ParseException(instring, len(instring), self.errmsg, self)
                         else:
                             loc, tokens = self.parseImpl(instring, preloc, doActions)
+                    except Exception as err:
+                        # ~ print ("Exception raised:", err)
+                        if self.debugActions[FAIL]:
+                            self.debugActions[FAIL](instring, tokensStart, self, err)
+                        if self.failAction:
+                            self.failAction(instring, tokensStart, self, err)
+                        raise
+                else:
+                    if callPreParse and self.callPreparse:
+                        preloc = self.preParse(instring, loc)
+                    else:
+                        preloc = loc
+                    tokensStart = preloc
+                    if self.mayIndexError or preloc >= len(instring):
+                        try:
+                            loc, tokens = self.parseImpl(instring, preloc, doActions)
+                        except IndexError:
+                            raise ParseException(instring, len(instring), self.errmsg, self)
+                    else:
+                        loc, tokens = self.parseImpl(instring, preloc, doActions)
 
-                    tokens = self.postParse(instring, loc, tokens)
+                tokens = self.postParse(instring, loc, tokens)
 
-                    retTokens = ParseResults(tokens, self.resultsName, asList=self.saveAsList, modal=self.modalResults)
-                    if self.parseAction and (doActions or self.callDuringTry):
-                        if debugging:
-                            try:
-                                for fn in self.parseAction:
-                                    try:
-                                        tokens = fn(instring, tokensStart, retTokens)
-                                    except IndexError as parse_action_exc:
-                                        exc = ParseException("exception raised in parse action")
-                                        exc.__cause__ = parse_action_exc
-                                        raise exc
-
-                                    if tokens is not None and tokens is not retTokens:
-                                        retTokens = ParseResults(tokens,
-                                                                self.resultsName,
-                                                                asList=self.saveAsList and isinstance(tokens, (ParseResults, list)),
-                                                                modal=self.modalResults)
-                            except Exception as err:
-                                # ~ print "Exception raised in user parse action:", err
-                                if self.debugActions[FAIL]:
-                                    self.debugActions[FAIL](instring, tokensStart, self, err)
-                                raise
-                        else:
+                retTokens = ParseResults(tokens, self.resultsName, asList=self.saveAsList, modal=self.modalResults)
+                if self.parseAction and (doActions or self.callDuringTry):
+                    if debugging:
+                        try:
                             for fn in self.parseAction:
                                 try:
                                     tokens = fn(instring, tokensStart, retTokens)
@@ -2150,27 +2147,53 @@ class ParserElement(object):
                                                             self.resultsName,
                                                             asList=self.saveAsList and isinstance(tokens, (ParseResults, list)),
                                                             modal=self.modalResults)
-                    if debugging:
-                        # ~ print ("Matched", self, "->", retTokens.asList())
-                        if self.debugActions[MATCH]:
-                            self.debugActions[MATCH](instring, tokensStart, loc, self, retTokens)
+                        except Exception as err:
+                            # ~ print "Exception raised in user parse action:", err
+                            if self.debugActions[FAIL]:
+                                self.debugActions[FAIL](instring, tokensStart, self, err)
+                            raise
+                    else:
+                        for fn in self.parseAction:
+                            try:
+                                tokens = fn(instring, tokensStart, retTokens)
+                            except IndexError as parse_action_exc:
+                                exc = ParseException("exception raised in parse action")
+                                exc.__cause__ = parse_action_exc
+                                raise exc
 
-                    # return loc, retTokens
+                            if tokens is not None and tokens is not retTokens:
+                                retTokens = ParseResults(tokens,
+                                                        self.resultsName,
+                                                        asList=self.saveAsList and isinstance(tokens, (ParseResults, list)),
+                                                        modal=self.modalResults)
+                if debugging:
+                    # ~ print ("Matched", self, "->", retTokens.asList())
+                    if self.debugActions[MATCH]:
+                        self.debugActions[MATCH](instring, tokensStart, loc, self, retTokens)
 
-                    # [CPYPARSING] END INLINE _parseNoCache
-                    value = loc, retTokens
-                except ParseBaseException as pe:
-                    # cache a copy of the exception, without the traceback
-                    cache.set(lookup, pe.__class__(*pe.args))
-                    raise
-                else:
-                    cache.set(lookup, (value[0], value[1].copy()))
-                    return value
+                # return loc, retTokens
+
+                # [CPYPARSING] END INLINE _parseNoCache
+                value = loc, retTokens
+            except ParseBaseException as pe:
+                # [CPYPARSING] cache a copy of the exception, without the traceback;
+                # bypass __init__ to avoid redundant tuple creation and checks
+                cache_exc = pe.__class__.__new__(pe.__class__)
+                cache_exc.loc = pe.loc
+                cache_exc.msg = pe.msg
+                cache_exc.pstr = pe.pstr
+                cache_exc.parserElement = None
+                cache_exc.args = pe.args
+                cache.set(lookup, cache_exc)
+                raise
             else:
-                ParserElement.packrat_cache_stats[HIT] += 1
-                if isinstance(value, Exception):
-                    raise value
-                return value[0], value[1].copy()
+                cache.set(lookup, (value[0], value[1].copy()))
+                return value
+        else:
+            ParserElement.packrat_cache_stats[HIT] += 1
+            if isinstance(value, Exception):
+                raise value
+            return value[0], value[1].copy()
 
     # [CPYPARSING] add _update_furthest_loc_for_regex
     def _update_furthest_loc_for_regex(self, instring, loc, flags=0):
@@ -2214,6 +2237,9 @@ class ParserElement(object):
         ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc)
 
         cache = ParserElement.packrat_cache
+        # [CPYPARSING] direct dict access bypasses wrapper method dispatch
+        cache_dict = cache.cache
+        not_in_cache = cache.not_in_cache
 
         # try to find a hit
         hit = None
@@ -2228,8 +2254,8 @@ class ParserElement(object):
                 or loc < prefix_len - 1
             ):
                 prefix_lookup = (self, other_instring, loc, lookup_bools, ParserElement.packrat_context)
-                cache_result = cache.get(prefix_lookup)
-                if cache_result is not cache.not_in_cache:
+                cache_result = cache_dict.get(prefix_lookup, not_in_cache)
+                if cache_result is not not_in_cache:
                     cache_item, cache_furthest_loc, cache_usefullness_obj = cache_result
                     if (
                         # if other_instring is instring
@@ -2252,8 +2278,8 @@ class ParserElement(object):
             ):
                 loc_in_suffix = len(other_instring) - (len(instring) - loc)
                 suffix_lookup = (self, other_instring, loc_in_suffix, lookup_bools, ParserElement.packrat_context)
-                cache_result = cache.get(suffix_lookup)
-                if cache_result is not cache.not_in_cache:
+                cache_result = cache_dict.get(suffix_lookup, not_in_cache)
+                if cache_result is not not_in_cache:
                     cache_item, cache_furthest_loc, cache_usefullness_obj = cache_result
                     # we just used this cache item, so it's definitely useful
                     cache_usefullness_obj[0] = True
