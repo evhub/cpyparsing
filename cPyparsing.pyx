@@ -57,6 +57,7 @@ py_repr = repr
 # [CPYPARSING] C-level helpers
 from cpython.object cimport PyObject, PyTypeObject
 from cpython.long cimport PyLong_FromVoidPtr
+from cpython.ref cimport Py_XDECREF
 
 # [CPYPARSING] C-level references to classes used in hot paths (avoids module dict
 #  lookups), each set as soon as the corresponding class is defined
@@ -550,6 +551,45 @@ cdef object _new_ParseException(pstr, loc, msg, elem):
     _cPyparsing_slot_set(exc, _pbe_elem_off, elem)
     _cPyparsing_slot_set(exc, _pbe_args_off, (pstr, loc, msg))
     return exc
+
+cdef extern from *:
+    """
+    /* new reference to the exception currently being handled (i.e. sys.exc_info()[1]), or NULL */
+    static PyObject *_cPyparsing_handled_exception(void) {
+    #if PY_VERSION_HEX >= 0x030B0000
+        return PyErr_GetHandledException();
+    #elif PY_MAJOR_VERSION >= 3
+        PyObject *t, *v, *tb;
+        PyErr_GetExcInfo(&t, &v, &tb);
+        Py_XDECREF(t);
+        Py_XDECREF(tb);
+        return v;
+    #else
+        return NULL;
+    #endif
+    }
+    """
+    PyObject* _cPyparsing_handled_exception()
+
+# whether the exception being propagated is the handled exception inside a finally
+#  clause (true on Python 3, but not in Cython's Python 2 implementation of finally)
+cdef bint _handled_exceptions_in_finally = PY_3
+
+class _NeverRaisedException(BaseException):
+    """Placeholder exception that is never raised."""
+
+# exception class to catch for caching in except clauses (only used on Python 2)
+cdef object _py2_ParseBaseException_cls = _NeverRaisedException if _handled_exceptions_in_finally else ParseBaseException
+
+cdef _cache_handled_parse_exception(cache, lookup):
+    """Cache a copy of the exception currently being handled if it's a ParseBaseException."""
+    cdef PyObject* exc_ptr = _cPyparsing_handled_exception()
+    if exc_ptr is NULL:
+        return
+    exc = <object>exc_ptr
+    Py_XDECREF(exc_ptr)
+    if isinstance(exc, _ParseBaseException_cls):
+        _cache_set(cache, lookup, _copy_parse_exception(exc))
 
 cdef object _copy_parse_exception(pe):
     """Copy the given ParseBaseException without its traceback or parserElement."""
@@ -2305,6 +2345,10 @@ class ParserElement(object):
         value = cache_dict.get(lookup, not_in_cache)
         if value is not_in_cache:
             _ParserElement_cls.packrat_cache_stats[1] += 1  # MISS
+            # [CPYPARSING] on Python 3, failures are cached in the finally clause rather
+            #  than an except clause, since Cython adds an extra traceback entry for
+            #  every exception that's caught by an except clause
+            got_value = False
             try:
                 # value = self._parseNoCache(instring, loc, doActions, callPreParse)
                 # [CPYPARSING] START INLINE _parseNoCache
@@ -2398,13 +2442,17 @@ class ParserElement(object):
 
                 # [CPYPARSING] END INLINE _parseNoCache
                 value = loc, retTokens
-            except _ParseBaseException_cls as pe:
+                got_value = True
+            except _py2_ParseBaseException_cls as pe:  # only ever matches on Python 2
                 # [CPYPARSING] cache a copy of the exception, without the traceback
                 _cache_set(cache, lookup, _copy_parse_exception(pe))
                 raise
-            else:
-                _cache_set(cache, lookup, (value[0], value[1].copy()))
-                return value
+            finally:
+                if not got_value and _handled_exceptions_in_finally:
+                    # [CPYPARSING] cache a copy of the exception, without the traceback
+                    _cache_handled_parse_exception(cache, lookup)
+            _cache_set(cache, lookup, (value[0], value[1].copy()))
+            return value
         else:
             _ParserElement_cls.packrat_cache_stats[0] += 1  # HIT
             if type(value) is not tuple and isinstance(value, Exception):
