@@ -54,6 +54,10 @@ py_repr = repr
 # PYPARSING:
 #-----------------------------------------------------------------------------------------------------------------------
 
+# [CPYPARSING] C-level helpers
+from cpython.object cimport PyObject, PyTypeObject
+from cpython.long cimport PyLong_FromVoidPtr
+
 import string
 from weakref import ref as wkref
 import copy
@@ -982,6 +986,7 @@ class ParseResults(object):
         ret.__modal = self.__modal
         return ret
 
+
     def asXML(self, doctag=None, namedItemsOnly=False, indent="", formatted=True):
         """
         (Deprecated) Returns the parse results as XML. Tags are created for tokens and lists that have defined results names.
@@ -1236,6 +1241,56 @@ class ParseResults(object):
 
 MutableMapping.register(ParseResults)
 
+# [CPYPARSING] fast ParseResults helpers
+cdef tuple _empty_tuple = ()
+cdef PyTypeObject* _object_type = <PyTypeObject*>object
+
+cdef object _ParseResults_from_list(list toklist, asList, modal):
+    """Equivalent to ParseResults(toklist, None, asList=asList, modal=modal)."""
+    retobj = _object_type.tp_new(<type>ParseResults, <PyObject*>_empty_tuple, NULL)
+    # same attributes, set in the same order, as ParseResults.__new__ + ParseResults.__init__
+    retobj._ParseResults__doinit = False
+    retobj._ParseResults__name = None
+    retobj._ParseResults__parent = None
+    retobj._ParseResults__accumNames = {}
+    retobj._ParseResults__asList = asList
+    retobj._ParseResults__modal = modal
+    retobj._ParseResults__toklist = toklist[:]
+    retobj._ParseResults__tokdict = dict()
+    return retobj
+
+cdef inline object _make_retTokens(self, tokens):
+    """Equivalent to ParseResults(tokens, self.resultsName, asList=self.saveAsList, modal=self.modalResults)."""
+    resultsName = self.resultsName
+    if resultsName is None:
+        tokens_type = type(tokens)
+        # ParseResults(toks) with no name just returns toks when toks is an already-initialized ParseResults
+        if tokens_type is ParseResults and not tokens._ParseResults__doinit:
+            return tokens
+        if tokens_type is list:
+            return _ParseResults_from_list(tokens, self.saveAsList, self.modalResults)
+    return ParseResults(tokens, resultsName, asList=self.saveAsList, modal=self.modalResults)
+
+cdef inline bint _has_tokens(toks) except -1:
+    """Equivalent to bool(toks or toks.haskeys())."""
+    if type(toks) is ParseResults:
+        return bool(toks._ParseResults__toklist) or bool(toks._ParseResults__tokdict)
+    return bool(toks or toks.haskeys())
+
+cdef inline object _iadd_tokens(toks, other):
+    """Equivalent to toks += other; returns the new toks."""
+    if (
+        type(toks) is ParseResults
+        and type(other) is ParseResults
+        and not other._ParseResults__tokdict
+    ):
+        # same as ParseResults.__iadd__ when other has no named results
+        toks._ParseResults__toklist += other._ParseResults__toklist
+        toks._ParseResults__accumNames.update(other._ParseResults__accumNames)
+        return toks
+    toks += other
+    return toks
+
 def col (loc, strg):
     """Returns current column within a string, counting newlines as line separators.
    The first column is number 1.
@@ -1486,6 +1541,43 @@ else:
         # [CPYPARSING] add __reduce__
         def __reduce__(self):
             return (self.__class__, (self.size,), {"cache": self.cache, "key_fifo": self.key_fifo})
+
+
+# [CPYPARSING] whitespace skipping helper
+cdef object _skip_whitespace(instring, Py_ssize_t loc, wt):
+    """Equivalent to the whitespace skipping loop in ParserElement.preParse."""
+    cdef Py_ssize_t instrlen = len(instring)
+    while loc < instrlen and instring[loc] in wt:
+        loc += 1
+    return loc
+
+# [CPYPARSING] packrat cache helpers
+cdef inline object _lookup_bools(callPreParse, doActions):
+    """Equivalent to callPreParse | doActions << 1."""
+    if type(callPreParse) is bool and type(doActions) is bool:
+        return (1 if callPreParse is True else 0) + (2 if doActions is True else 0)
+    return callPreParse | doActions << 1
+
+_UnboundedCache_set = _UnboundedCache.set
+
+cdef inline _cache_set(cache, key, value):
+    """Equivalent to cache.set(key, value)."""
+    if type(cache) is _UnboundedCache and _UnboundedCache.set is _UnboundedCache_set:
+        cache.cache[key] = value
+    else:
+        cache.set(key, value)
+
+cdef object _copy_parse_exception(pe):
+    """Copy the given ParseBaseException without its traceback or parserElement."""
+    # equivalent to pe.__class__.__new__(pe.__class__) but without the attribute lookups
+    exc_type = type(pe)
+    cache_exc = (<PyTypeObject*>exc_type).tp_new(<type>exc_type, <PyObject*>_empty_tuple, NULL)
+    cache_exc.loc = pe.loc
+    cache_exc.msg = pe.msg
+    cache_exc.pstr = pe.pstr
+    cache_exc.parserElement = None
+    cache_exc.args = pe.args
+    return cache_exc
 
 
 class ParserElement(object):
@@ -1806,6 +1898,9 @@ class ParserElement(object):
 
         if self.skipWhitespace:
             wt = self.whiteChars
+            # [CPYPARSING] skip whitespace using C-level indices
+            if type(loc) is int:
+                return _skip_whitespace(instring, loc, wt)
             instrlen = len(instring)
             while loc < instrlen and instring[loc] in wt:
                 loc += 1
@@ -1960,7 +2055,8 @@ class ParserElement(object):
 
         tokens = self.postParse(instring, loc, tokens)
 
-        retTokens = ParseResults(tokens, self.resultsName, asList=self.saveAsList, modal=self.modalResults)
+        # [CPYPARSING] fast ParseResults construction
+        retTokens = _make_retTokens(self, tokens)
         if self.parseAction and (doActions or self.callDuringTry):
             if debugging:
                 try:
@@ -2076,7 +2172,7 @@ class ParserElement(object):
     def _parseCache(self, instring, loc, doActions=True, callPreParse=True):
         # [CPYPARSING] HIT, MISS are constants
         # [CPYPARSING] include packrat_context, merge callPreParse and doActions
-        lookup = (self, instring, loc, callPreParse | doActions << 1, ParserElement.packrat_context)
+        lookup = (self, instring, loc, _lookup_bools(callPreParse, doActions), ParserElement.packrat_context)
         cache = ParserElement.packrat_cache
         # [CPYPARSING] direct cache.cache.get instead of cache.get
         cache_dict = cache.cache
@@ -2084,7 +2180,7 @@ class ParserElement(object):
         # [CPYPARSING] direct cache.cache.get instead of cache.get
         value = cache_dict.get(lookup, not_in_cache)
         if value is not_in_cache:
-            ParserElement.packrat_cache_stats[MISS] += 1
+            ParserElement.packrat_cache_stats[1] += 1  # MISS
             try:
                 # value = self._parseNoCache(instring, loc, doActions, callPreParse)
                 # [CPYPARSING] START INLINE _parseNoCache
@@ -2132,7 +2228,8 @@ class ParserElement(object):
 
                 tokens = self.postParse(instring, loc, tokens)
 
-                retTokens = ParseResults(tokens, self.resultsName, asList=self.saveAsList, modal=self.modalResults)
+                # [CPYPARSING] fast ParseResults construction
+                retTokens = _make_retTokens(self, tokens)
                 if self.parseAction and (doActions or self.callDuringTry):
                     if debugging:
                         try:
@@ -2178,22 +2275,15 @@ class ParserElement(object):
                 # [CPYPARSING] END INLINE _parseNoCache
                 value = loc, retTokens
             except ParseBaseException as pe:
-                # [CPYPARSING] cache a copy of the exception, without the traceback;
-                # bypass __init__ to avoid redundant tuple creation and checks
-                cache_exc = pe.__class__.__new__(pe.__class__)
-                cache_exc.loc = pe.loc
-                cache_exc.msg = pe.msg
-                cache_exc.pstr = pe.pstr
-                cache_exc.parserElement = None
-                cache_exc.args = pe.args
-                cache.set(lookup, cache_exc)
+                # [CPYPARSING] cache a copy of the exception, without the traceback
+                _cache_set(cache, lookup, _copy_parse_exception(pe))
                 raise
             else:
-                cache.set(lookup, (value[0], value[1].copy()))
+                _cache_set(cache, lookup, (value[0], value[1].copy()))
                 return value
         else:
-            ParserElement.packrat_cache_stats[HIT] += 1
-            if isinstance(value, Exception):
+            ParserElement.packrat_cache_stats[0] += 1  # HIT
+            if type(value) is not tuple and isinstance(value, Exception):
                 raise value
             return value[0], value[1].copy()
 
@@ -2232,7 +2322,7 @@ class ParserElement(object):
             prefixes_and_suffixes.sort(key=lambda s_pl_sl: sum(s_pl_sl[1:]), reverse=True)
             ParserElement._instring_prefixes_and_suffixes[instring] = prefixes_and_suffixes
 
-        lookup_bools = callPreParse | doActions << 1
+        lookup_bools = _lookup_bools(callPreParse, doActions)
         # with ParserElement.packrat_cache_lock:
 
         # update furthest_loc
@@ -2294,7 +2384,7 @@ class ParserElement(object):
 
         # handle the hit if we got one
         if hit is not None:
-            ParserElement.packrat_cache_stats[HIT] += 1
+            ParserElement.packrat_cache_stats[0] += 1  # HIT
             if hit is True:  # success
                 # defer handling success until later so we can inline
                 pass
@@ -2312,7 +2402,7 @@ class ParserElement(object):
 
         if hit is not True:
             # otherwise do miss behavior
-            ParserElement.packrat_cache_stats[MISS] += 1
+            ParserElement.packrat_cache_stats[1] += 1  # MISS
             lookup = (self, instring, loc, lookup_bools, ParserElement.packrat_context)
         # by default, assume inner caches are useful, so they don't get cleared inside this parse
         outer_parent_usefullness_obj, ParserElement._incremental_parent_usefullness_obj = ParserElement._incremental_parent_usefullness_obj, [True]
@@ -2363,7 +2453,8 @@ class ParserElement(object):
 
             tokens = self.postParse(instring, loc, tokens)
 
-            retTokens = ParseResults(tokens, self.resultsName, asList=self.saveAsList, modal=self.modalResults)
+            # [CPYPARSING] fast ParseResults construction
+            retTokens = _make_retTokens(self, tokens)
             if self.parseAction and (doActions or self.callDuringTry):
                 if debugging:
                     try:
@@ -2418,7 +2509,7 @@ class ParserElement(object):
                 # update furthest_loc
                 ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], err.loc)
                 # on failure, cache (exception loc, furthest loc, usefullness_obj)
-                cache.set(lookup, (err.loc, ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
+                _cache_set(cache, lookup, (err.loc, ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
             raise
         else:
             # but if we're caching a success for the outer parse, then we will need inner cache items to reparse
@@ -2430,10 +2521,10 @@ class ParserElement(object):
                 #  since we just recompute the parse action anyway on a success
                 if ParserElement._incremental_hybrid_mode:
                     # on hybrid success, cache ((new_loc, ret_toks), furthest loc, usefullness_obj)
-                    cache.set(lookup, ((new_loc, ret_toks.copy()), ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
+                    _cache_set(cache, lookup, ((new_loc, ret_toks.copy()), ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
                 elif ParserElement._incremental_cache_successes:
                     # on non-hybrid success, cache (True, furthest loc, usefullness_obj)
-                    cache.set(lookup, (True, ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
+                    _cache_set(cache, lookup, (True, ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
             return new_loc, ret_toks
         finally:
             ParserElement._incremental_parent_usefullness_obj = outer_parent_usefullness_obj
@@ -3242,7 +3333,8 @@ class ParserElement(object):
         return not (self == other)
 
     def __hash__(self):
-        return id(self)
+        # [CPYPARSING] same as id(self) but without the builtin call
+        return PyLong_FromVoidPtr(<void*>self)
 
     def __req__(self, other):
         return self == other
@@ -5123,10 +5215,13 @@ class And(ParseExpression):
     def parseImpl(self, instring, loc, doActions=True):
         # pass False as last arg to _parse for first element, since we already
         # pre-parsed the string as part of our And pre-parsing
-        loc, resultlist = self.exprs[0]._parse(instring, loc, doActions, callPreParse=False)
+        # [CPYPARSING] look up self.exprs and And._ErrorStop once, pass callPreParse positionally
+        exprs = self.exprs
+        loc, resultlist = exprs[0]._parse(instring, loc, doActions, False)
         errorStop = False
-        for e in self.exprs[1:]:
-            if isinstance(e, And._ErrorStop):
+        ErrorStop = And._ErrorStop
+        for e in exprs[1:]:
+            if isinstance(e, ErrorStop):
                 errorStop = True
                 continue
             if errorStop:
@@ -5141,8 +5236,9 @@ class And(ParseExpression):
                     raise ParseSyntaxException(instring, len(instring), self.errmsg, self)
             else:
                 loc, exprtokens = e._parse(instring, loc, doActions)
-            if exprtokens or exprtokens.haskeys():
-                resultlist += exprtokens
+            # [CPYPARSING] fast ParseResults checks
+            if _has_tokens(exprtokens):
+                resultlist = _iadd_tokens(resultlist, exprtokens)
         return loc, resultlist
 
     def __iadd__(self, other):
@@ -5343,34 +5439,61 @@ class MatchFirst(ParseExpression):
 
     # [CPYPARSING] implement adaptive mode
     def parseImpl(self, instring, loc, doActions=True):
-        if self.adaptive_mode:
+        cdef Py_ssize_t fast_ind
+        # [CPYPARSING] look up adaptive_mode and exprs only once
+        adaptive_mode = self.adaptive_mode
+        exprs = self.exprs
+        if adaptive_mode:
             if self.expr_order is None:
-                self.expr_order = list(range(len(self.exprs)))
-            elif len(self.expr_order) < len(self.exprs):
-                self.expr_order += list(range(len(self.expr_order), len(self.exprs)))
+                self.expr_order = list(range(len(exprs)))
+            elif len(self.expr_order) < len(exprs):
+                self.expr_order += list(range(len(self.expr_order), len(exprs)))
             if self.adaptive_usage is None:
-                self.adaptive_usage = [0] * len(self.exprs)
-        if self.adaptive_usage is not None and len(self.adaptive_usage) < len(self.exprs):
-            self.adaptive_usage += [0] * (len(self.exprs) - len(self.adaptive_usage))
+                self.adaptive_usage = [0] * len(exprs)
+        if self.adaptive_usage is not None and len(self.adaptive_usage) < len(exprs):
+            self.adaptive_usage += [0] * (len(exprs) - len(self.adaptive_usage))
 
         maxExcLoc = -1
         maxException = None
-        if self.adaptive_mode:
-            outer_using_expr_order, self.using_expr_order = self.using_expr_order, True
-        try:
-            for i, ind_or_e in enumerate(self.expr_order if self.adaptive_mode else self.exprs):
-                if self.adaptive_mode:
-                    ind = ind_or_e
-                    try:
-                        e = self.exprs[ind]
-                    except IndexError:
-                        if self.allow_unused_expr_order:
-                            continue
-                        else:
-                            raise
+
+        # [CPYPARSING] fast path for non-adaptive mode
+        if not adaptive_mode:
+            fast_ind = 0
+            for e in exprs:
+                try:
+                    ret = e._parse(instring, loc, doActions)
+                except ParseException as err:
+                    err_loc = err.loc
+                    if err_loc > maxExcLoc:
+                        maxException = err
+                        maxExcLoc = err_loc
+                except IndexError:
+                    if len(instring) > maxExcLoc:
+                        maxException = ParseException(instring, len(instring), e.errmsg, self)
+                        maxExcLoc = len(instring)
                 else:
-                    ind = i
-                    e = ind_or_e
+                    if self.adaptive_usage is not None:
+                        self.adaptive_usage[fast_ind] += self.usage_weight
+                    return ret
+                fast_ind += 1
+
+            # only got here if no expression matched, raise exception for match that made it the furthest
+            if maxException is not None:
+                maxException.msg = self.errmsg
+                raise maxException
+            else:
+                raise ParseException(instring, loc, "no defined alternatives to match", self)
+
+        outer_using_expr_order, self.using_expr_order = self.using_expr_order, True
+        try:
+            for i, ind in enumerate(self.expr_order):
+                try:
+                    e = self.exprs[ind]
+                except IndexError:
+                    if self.allow_unused_expr_order:
+                        continue
+                    else:
+                        raise
                 try:
                     ret = e._parse(instring, loc, doActions)
                 except ParseException as err:
@@ -5384,7 +5507,7 @@ class MatchFirst(ParseExpression):
                 else:
                     if self.adaptive_usage is not None:
                         self.adaptive_usage[ind] += self.usage_weight
-                    if self.adaptive_mode and i > 0 and not outer_using_expr_order:
+                    if i > 0 and not outer_using_expr_order:
                         usage = self.adaptive_usage[ind]
                         if (
                             (
@@ -5405,8 +5528,7 @@ class MatchFirst(ParseExpression):
                 else:
                     raise ParseException(instring, loc, "no defined alternatives to match", self)
         finally:
-            if self.adaptive_mode:
-                self.using_expr_order = outer_using_expr_order
+            self.using_expr_order = outer_using_expr_order
 
     def __ior__(self, other):
         if isinstance(other, basestring):
@@ -5605,8 +5727,10 @@ class ParseElementEnhance(ParserElement):
     #     else:
     #         return ParseException("", loc, self.errmsg, self)
     def parseImpl(self, instring, loc, doActions=True):
-        if self.expr is not None:
-            return self.expr._parse(instring, loc, doActions, callPreParse=False)
+        # [CPYPARSING] look up self.expr once, pass callPreParse positionally
+        expr = self.expr
+        if expr is not None:
+            return expr._parse(instring, loc, doActions, False)
         else:
             raise ParseException("", loc, self.errmsg, self)
 
@@ -5915,7 +6039,8 @@ class _MultipleMatch(ParseElementEnhance):
         # if so, fail)
         if check_ender:
             try_not_ender(instring, loc)
-        loc, tokens = self_expr_parse(instring, loc, doActions, callPreParse=False)
+        # [CPYPARSING] pass callPreParse positionally
+        loc, tokens = self_expr_parse(instring, loc, doActions, False)
         try:
             hasIgnoreExprs = (not not self.ignoreExprs)
             while 1:
@@ -5926,8 +6051,9 @@ class _MultipleMatch(ParseElementEnhance):
                 else:
                     preloc = loc
                 loc, tmptokens = self_expr_parse(instring, preloc, doActions)
-                if tmptokens or tmptokens.haskeys():
-                    tokens += tmptokens
+                # [CPYPARSING] fast ParseResults checks
+                if _has_tokens(tmptokens):
+                    tokens = _iadd_tokens(tokens, tmptokens)
         except (ParseException, IndexError):
             pass
 
@@ -6009,6 +6135,9 @@ class ZeroOrMore(_MultipleMatch):
     #     return got
     def parseImpl(self, instring, loc, doActions=True):
         try:
+            # [CPYPARSING] avoid creating a super object when we know what it would resolve to
+            if type(self) is ZeroOrMore:
+                return _MultipleMatch.parseImpl(self, instring, loc, doActions)
             return super(ZeroOrMore, self).parseImpl(instring, loc, doActions)
         except (ParseException, IndexError):
             return loc, []
@@ -6098,7 +6227,8 @@ class Optional(ParseElementEnhance):
     #     return loc, tokens
     def parseImpl(self, instring, loc, doActions=True):
         try:
-            loc, tokens = self.expr._parse(instring, loc, doActions, callPreParse=False)
+            # [CPYPARSING] pass callPreParse positionally
+            loc, tokens = self.expr._parse(instring, loc, doActions, False)
         except (ParseException, IndexError):
             if self.defaultValue is not self.__optionalNotMatched:
                 if self.expr.resultsName:
