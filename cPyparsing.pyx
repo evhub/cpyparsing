@@ -4758,6 +4758,111 @@ class WordEnd(_PositionToken):
         return loc, []
 
 
+# [CPYPARSING] streamline memoization
+# Without memoization, streamlining re-streamlines every non-Forward element once per path
+# to it from the root, which on a large grammar with lots of sharing is exponentially many
+# times. During a single top-level streamline pass, we instead remember every element for
+# which re-running streamline is known to be a no-op (other than resetting its strRepr
+# cache) and skip such elements when we see them again. An element is only memoized if all
+# the streamline implementations in its MRO are cPyparsing's own, all its children are
+# memoized, and none of the conditions that would make re-streamlining it change it hold
+# (see _streamline_is_stable). If anything happens during a pass that could change an
+# already-memoized element (a _PendingSkip being merged, or a custom streamline
+# implementation being run), memoization is turned off for the rest of the pass.
+_streamline_memo = None  # dict mapping id(elem) -> elem during a top-level streamline pass
+_streamline_disabled = False  # whether memoization has been turned off for the current pass
+_streamline_kind_cache = None  # dict mapping type -> streamline kind during a pass
+_streamline_kinds_by_chain = None  # set below once all classes are defined
+
+cdef object _get_streamline_kind(elem):
+    """Determine what kind of streamline implementation elem uses, or None if unknown."""
+    elem_dict = getattr(elem, "__dict__", None)
+    if elem_dict is not None and "streamline" in elem_dict:
+        return None
+    elem_type = type(elem)
+    kind = _streamline_kind_cache.get(elem_type, False)
+    if kind is False:
+        chain = tuple(
+            cls.__dict__["streamline"]
+            for cls in elem_type.__mro__
+            if "streamline" in cls.__dict__
+        )
+        kind = _streamline_kinds_by_chain.get(chain) if _streamline_kinds_by_chain is not None else None
+        _streamline_kind_cache[elem_type] = kind
+    return kind
+
+cdef bint _streamline_is_stable(elem, kind, dict memo) except -1:
+    """Determine whether re-streamlining elem would be a no-op given that elem was just streamlined."""
+    if kind == 0:  # ParserElement.streamline
+        return True
+    if kind == 1:  # ParseElementEnhance.streamline
+        expr = elem.expr
+        return expr is None or memo.get(id(expr)) is expr
+    if kind == 2:  # Forward.streamline
+        return bool(elem.streamlined)
+    # kind 3 (ParseExpression.streamline and subclasses) or 4 (And.streamline)
+    exprs = elem.exprs
+    for e in exprs:
+        if memo.get(id(e)) is not e:
+            return False
+    # re-streamlining would collapse nested expressions
+    if len(exprs) == 2:
+        for other in (exprs[0], exprs[-1]):
+            if (other.__class__ == elem.__class__
+                    and not other.parseAction
+                    and other.resultsName is None
+                    and not other.debug):
+                return False
+    # re-streamlining would collapse _PendingSkips
+    if kind == 4 and exprs:
+        for e in exprs[:-1]:
+            if isinstance(e, ParseExpression) and e.exprs and isinstance(e.exprs[-1], _PendingSkip):
+                return False
+    return True
+
+cdef _streamline_children_in_pass(exprs):
+    """Streamline each element of exprs, using the current pass's memo."""
+    for e in exprs:
+        memo = _streamline_memo
+        if _streamline_disabled:
+            e.streamline()
+            continue
+        if memo.get(id(e)) is e:
+            continue
+        kind = _get_streamline_kind(e)
+        if kind is None:
+            # custom streamline implementations could do anything, so stop memoizing
+            _disable_streamline_memo()
+            e.streamline()
+            continue
+        e.streamline()
+        if not _streamline_disabled and _streamline_is_stable(e, kind, memo):
+            memo[id(e)] = e
+
+cdef _streamline_children(exprs):
+    """Streamline each element of exprs, starting a new memoized pass if we aren't already in one."""
+    global _streamline_memo, _streamline_disabled, _streamline_kind_cache
+    if _streamline_memo is not None:
+        _streamline_children_in_pass(exprs)
+        return
+    _streamline_memo = {}
+    _streamline_disabled = False
+    _streamline_kind_cache = {}
+    try:
+        _streamline_children_in_pass(exprs)
+    finally:
+        _streamline_memo = None
+        _streamline_disabled = False
+        _streamline_kind_cache = None
+
+cdef _disable_streamline_memo():
+    """Turn off streamline memoization for the rest of the current pass (if any)."""
+    global _streamline_disabled
+    if _streamline_memo is not None:
+        _streamline_disabled = True
+        _streamline_memo.clear()
+
+
 class ParseExpression(ParserElement):
     """Abstract subclass of ParserElement, for combining and
     post-processing parsed tokens.
@@ -4848,8 +4953,8 @@ class ParseExpression(ParserElement):
     def streamline(self):
         super(ParseExpression, self).streamline()
 
-        for e in self.exprs:
-            e.streamline()
+        # [CPYPARSING] memoize streamlining
+        _streamline_children(self.exprs)
 
         # collapse nested And's of the form And(And(And(a, b), c), d) to And(a, b, c, d)
         # but only if there are no parse actions or resultsNames on the nested And's
@@ -4967,6 +5072,8 @@ class And(ParseExpression):
         if self.exprs:
             if any(isinstance(e, ParseExpression) and e.exprs and isinstance(e.exprs[-1], _PendingSkip)
                    for e in self.exprs[:-1]):
+                # [CPYPARSING] this modifies other elements, so stop memoizing streamlining
+                _disable_streamline_memo()
                 for i, e in enumerate(self.exprs[:-1]):
                     if e is None:
                         continue
@@ -5526,7 +5633,8 @@ class ParseElementEnhance(ParserElement):
     def streamline(self):
         super(ParseElementEnhance, self).streamline()
         if self.expr is not None:
-            self.expr.streamline()
+            # [CPYPARSING] memoize streamlining
+            _streamline_children((self.expr,))
         return self
 
     def checkRecursion(self, parseElementList):
@@ -6187,7 +6295,8 @@ class Forward(ParseElementEnhance):
         if not self.streamlined:
             self.streamlined = True
             if self.expr is not None:
-                self.expr.streamline()
+                # [CPYPARSING] memoize streamlining
+                _streamline_children((self.expr,))
         return self
 
     def validate(self, validateTrace=None):
@@ -6228,6 +6337,20 @@ class Forward(ParseElementEnhance):
                               stacklevel=3)
 
         return super(Forward, self)._setResultsName(name, listAllMatches)
+
+# [CPYPARSING] streamline kinds for streamline memoization, keyed by the
+#  tuple of streamline implementations in the MRO of an element's type
+_streamline_kinds_by_chain = {
+    (ParserElement.__dict__["streamline"],): 0,
+    (ParseElementEnhance.__dict__["streamline"], ParserElement.__dict__["streamline"]): 1,
+    (Forward.__dict__["streamline"], ParseElementEnhance.__dict__["streamline"], ParserElement.__dict__["streamline"]): 2,
+    (ParseExpression.__dict__["streamline"], ParserElement.__dict__["streamline"]): 3,
+    (Or.__dict__["streamline"], ParseExpression.__dict__["streamline"], ParserElement.__dict__["streamline"]): 3,
+    (MatchFirst.__dict__["streamline"], ParseExpression.__dict__["streamline"], ParserElement.__dict__["streamline"]): 3,
+    (Each.__dict__["streamline"], ParseExpression.__dict__["streamline"], ParserElement.__dict__["streamline"]): 3,
+    (And.__dict__["streamline"], ParseExpression.__dict__["streamline"], ParserElement.__dict__["streamline"]): 4,
+}
+
 
 class TokenConverter(ParseElementEnhance):
     """
