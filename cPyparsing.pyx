@@ -38,10 +38,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] automatically updated by constants.py prior to compilation
-__version__ = "2.4.7.2.4.3"
-__versionTime__ = "16 Feb 2026 09:38 UTC"
+__version__ = "2.4.7.2.4.4"
+__versionTime__ = "27 Nov 2026 19:59 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1643
+_WRAP_CALL_LINE_NUM = 1654
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
