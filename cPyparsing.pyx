@@ -581,15 +581,84 @@ class _NeverRaisedException(BaseException):
 # exception class to catch for caching in except clauses (only used on Python 2)
 cdef object _py2_ParseBaseException_cls = _NeverRaisedException if _handled_exceptions_in_finally else ParseBaseException
 
-cdef _cache_handled_parse_exception(cache, lookup):
-    """Cache a copy of the exception currently being handled if it's a ParseBaseException."""
+cdef object _get_handled_exception():
+    """Get the exception currently being handled (i.e. sys.exc_info()[1]), or None."""
     cdef PyObject* exc_ptr = _cPyparsing_handled_exception()
     if exc_ptr is NULL:
-        return
+        return None
     exc = <object>exc_ptr
     Py_XDECREF(exc_ptr)
+    return exc
+
+cdef _cache_handled_parse_exception(cache, lookup):
+    """Cache a copy of the exception currently being handled if it's a ParseBaseException."""
+    exc = _get_handled_exception()
     if isinstance(exc, _ParseBaseException_cls):
         _cache_set(cache, lookup, _copy_parse_exception(exc))
+
+cdef _incremental_cache_failure(err, hit, instring, cache, lookup, outer_parent_usefullness_obj):
+    """Handle a ParseBaseException err in ParserElement._parseIncremental."""
+    # if we're caching a failure for the outer parse, then any inner cache items probably won't be needed
+    _ParserElement_cls._incremental_parent_usefullness_obj[0] = False
+    if hit is not True:
+        # update furthest_loc
+        _ParserElement_cls._furthest_locs[instring] = max(_ParserElement_cls._furthest_locs[instring], err.loc)
+        # on failure, cache (exception loc, furthest loc, usefullness_obj)
+        _cache_set(cache, lookup, (err.loc, _ParserElement_cls._furthest_locs[instring], outer_parent_usefullness_obj))
+
+cdef extern from *:
+    """
+    /* length of the longest common prefix (or suffix if from_end) of a and b,
+       or -1 if a and b aren't both exact str objects we can read directly */
+    static Py_ssize_t _cPyparsing_common_affix_len(PyObject *a, PyObject *b, int from_end) {
+    #if PY_MAJOR_VERSION >= 3 && CYTHON_COMPILING_IN_CPYTHON
+        Py_ssize_t len_a, len_b, n, i;
+        int kind_a, kind_b;
+        const void *data_a, *data_b;
+        if (!PyUnicode_CheckExact(a) || !PyUnicode_CheckExact(b)) return -1;
+      #if PY_VERSION_HEX < 0x030C0000
+        if (PyUnicode_READY(a) < 0 || PyUnicode_READY(b) < 0) { PyErr_Clear(); return -1; }
+      #endif
+        len_a = PyUnicode_GET_LENGTH(a);
+        len_b = PyUnicode_GET_LENGTH(b);
+        n = len_a < len_b ? len_a : len_b;
+        kind_a = PyUnicode_KIND(a);
+        kind_b = PyUnicode_KIND(b);
+        data_a = PyUnicode_DATA(a);
+        data_b = PyUnicode_DATA(b);
+        if (!from_end && kind_a == kind_b && kind_a == PyUnicode_1BYTE_KIND) {
+            const Py_UCS1 *pa = (const Py_UCS1 *)data_a, *pb = (const Py_UCS1 *)data_b;
+            for (i = 0; i < n && pa[i] == pb[i]; i++);
+        } else if (from_end && kind_a == kind_b && kind_a == PyUnicode_1BYTE_KIND) {
+            const Py_UCS1 *pa = (const Py_UCS1 *)data_a + len_a, *pb = (const Py_UCS1 *)data_b + len_b;
+            for (i = 0; i < n && pa[-1 - i] == pb[-1 - i]; i++);
+        } else if (!from_end) {
+            for (i = 0; i < n && PyUnicode_READ(kind_a, data_a, i) == PyUnicode_READ(kind_b, data_b, i); i++);
+        } else {
+            for (i = 0; i < n && PyUnicode_READ(kind_a, data_a, len_a - 1 - i) == PyUnicode_READ(kind_b, data_b, len_b - 1 - i); i++);
+        }
+        return i;
+    #else
+        (void)a; (void)b; (void)from_end;
+        return -1;
+    #endif
+    }
+    """
+    Py_ssize_t _cPyparsing_common_affix_len(object a, object b, int from_end)
+
+cdef object _common_prefix_len(instring, other_instring):
+    """Equivalent to len(commonprefix([instring, other_instring]))."""
+    cdef Py_ssize_t prefix_len = _cPyparsing_common_affix_len(instring, other_instring, 0)
+    if prefix_len >= 0:
+        return prefix_len
+    return len(commonprefix([instring, other_instring]))
+
+cdef object _common_suffix_len(instring, other_instring):
+    """Equivalent to len(commonprefix([instring[::-1], other_instring[::-1]]))."""
+    cdef Py_ssize_t suffix_len = _cPyparsing_common_affix_len(instring, other_instring, 1)
+    if suffix_len >= 0:
+        return suffix_len
+    return len(commonprefix([instring[::-1], other_instring[::-1]]))
 
 cdef object _copy_parse_exception(pe):
     """Copy the given ParseBaseException without its traceback or parserElement."""
@@ -2477,17 +2546,19 @@ class ParserElement(object):
     def _parseIncremental(self, instring, loc, doActions=True, callPreParse=True):
         """Version of ParserElement._parseCache that can reuse caches from common prefix/suffix parses.
         Note that unlike _parseCache, _parseIncremental is not thread-safe."""
+        # [CPYPARSING] use C-level ints for location arithmetic
+        cdef Py_ssize_t c_loc, instring_len, prefix_len, suffix_len
         # determine the prefixes and suffixes to check for caches
-        prefixes_and_suffixes = ParserElement._instring_prefixes_and_suffixes.get(instring)
+        prefixes_and_suffixes = _ParserElement_cls._instring_prefixes_and_suffixes.get(instring)
         if prefixes_and_suffixes is None:  # this should only happen once per instring
             prefixes_and_suffixes = [
                 # instring, common prefix len, common suffix len
                 (instring, len(instring), len(instring)),
             ]
-            reversed_instring = instring[::-1]
-            for other_instring in ParserElement._instring_prefixes_and_suffixes:
-                common_prefix_len = len(commonprefix([instring, other_instring]))
-                common_suffix_len = len(commonprefix([reversed_instring, other_instring[::-1]]))
+            for other_instring in _ParserElement_cls._instring_prefixes_and_suffixes:
+                # [CPYPARSING] compute common prefix/suffix lengths in C when possible
+                common_prefix_len = _common_prefix_len(instring, other_instring)
+                common_suffix_len = _common_suffix_len(instring, other_instring)
                 if common_prefix_len or common_suffix_len:
                     prefixes_and_suffixes.append((other_instring, common_prefix_len, common_suffix_len))
             # sort the strings with the largest common prefixes/suffixes to the front so we check them first
@@ -2498,26 +2569,29 @@ class ParserElement(object):
         # with ParserElement.packrat_cache_lock:
 
         # update furthest_loc
-        ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], loc)
+        _ParserElement_cls._furthest_locs[instring] = max(_ParserElement_cls._furthest_locs[instring], loc)
 
-        cache = ParserElement.packrat_cache
+        cache = _ParserElement_cls.packrat_cache
         # [CPYPARSING] direct dict access bypasses wrapper method dispatch
         cache_dict = cache.cache
         not_in_cache = cache.not_in_cache
 
         # try to find a hit
         hit = None
+        c_loc = loc
+        instring_len = len(instring)
+        packrat_context = _ParserElement_cls.packrat_context
         for other_instring, prefix_len, suffix_len in prefixes_and_suffixes:
-            is_instring = prefix_len == len(instring)
+            is_instring = prefix_len == instring_len
 
             # look for prefix hit
             if (
                 # always check instring itself here
                 is_instring
                 # or if we're in the common prefix (and not at the end of it)
-                or loc < prefix_len - 1
+                or c_loc < prefix_len - 1
             ):
-                prefix_lookup = (self, other_instring, loc, lookup_bools, ParserElement.packrat_context)
+                prefix_lookup = (self, other_instring, loc, lookup_bools, packrat_context)
                 # [CPYPARSING] direct cache.cache.get instead of cache.get
                 cache_result = cache_dict.get(prefix_lookup, not_in_cache)
                 if cache_result is not not_in_cache:
@@ -2539,10 +2613,10 @@ class ParserElement(object):
                 # don't recheck instring itself
                 not is_instring
                 # only check if we're in the common suffix (and not at the start of it)
-                and loc > len(instring) - suffix_len
+                and c_loc > instring_len - suffix_len
             ):
-                loc_in_suffix = len(other_instring) - (len(instring) - loc)
-                suffix_lookup = (self, other_instring, loc_in_suffix, lookup_bools, ParserElement.packrat_context)
+                loc_in_suffix = len(other_instring) - (instring_len - c_loc)
+                suffix_lookup = (self, other_instring, loc_in_suffix, lookup_bools, packrat_context)
                 # [CPYPARSING] direct cache.cache.get instead of cache.get
                 cache_result = cache_dict.get(suffix_lookup, not_in_cache)
                 if cache_result is not not_in_cache:
@@ -2556,7 +2630,7 @@ class ParserElement(object):
 
         # handle the hit if we got one
         if hit is not None:
-            ParserElement.packrat_cache_stats[0] += 1  # HIT
+            _ParserElement_cls.packrat_cache_stats[0] += 1  # HIT
             if hit is True:  # success
                 # defer handling success until later so we can inline
                 pass
@@ -2564,7 +2638,7 @@ class ParserElement(object):
                 # #  need to actually run the parse actions since they might be greedy
                 # #  actions that need to actually be called in this parse
                 # return self._parseNoCache(instring, loc, doActions, callPreParse)
-            elif not ParserElement._incremental_hybrid_mode or isinstance(hit, int):   # failure; hit is exception loc
+            elif not _ParserElement_cls._incremental_hybrid_mode or isinstance(hit, int):   # failure; hit is exception loc
                 # unlike _parseCache, we don't cache the full exception,
                 #  so we need to rebuild it here, which can make exceptions a bit wonky
                 raise _new_ParseException(instring, hit, self.errmsg, self)
@@ -2572,12 +2646,17 @@ class ParserElement(object):
                 new_loc, ret_toks = hit
                 return new_loc, ret_toks.copy()
 
+        lookup = None
         if hit is not True:
             # otherwise do miss behavior
-            ParserElement.packrat_cache_stats[1] += 1  # MISS
-            lookup = (self, instring, loc, lookup_bools, ParserElement.packrat_context)
+            _ParserElement_cls.packrat_cache_stats[1] += 1  # MISS
+            lookup = (self, instring, loc, lookup_bools, _ParserElement_cls.packrat_context)
         # by default, assume inner caches are useful, so they don't get cleared inside this parse
-        outer_parent_usefullness_obj, ParserElement._incremental_parent_usefullness_obj = ParserElement._incremental_parent_usefullness_obj, [True]
+        outer_parent_usefullness_obj, _ParserElement_cls._incremental_parent_usefullness_obj = _ParserElement_cls._incremental_parent_usefullness_obj, [True]
+        # [CPYPARSING] on Python 3, failures are handled in the finally clause rather than
+        #  an except clause, since Cython adds an extra traceback entry for every exception
+        #  that's caught by an except clause
+        got_value = False
         try:
             # loc, ret_toks = self._parseNoCache(instring, loc, doActions, callPreParse)
             # [CPYPARSING] START INLINE _parseNoCache
@@ -2671,35 +2750,36 @@ class ParserElement(object):
 
             # [CPYPARSING] END INLINE _parseNoCache
             new_loc, ret_toks = loc, retTokens
+            got_value = True
 
         # _parseIncremental only caches the minimum necessary information to limit
         #  the memory footprint of very large caches
-        except ParseBaseException as err:
-            # if we're caching a failure for the outer parse, then any inner cache items probably won't be needed
-            ParserElement._incremental_parent_usefullness_obj[0] = False
-            if hit is not True:
-                # update furthest_loc
-                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], err.loc)
-                # on failure, cache (exception loc, furthest loc, usefullness_obj)
-                _cache_set(cache, lookup, (err.loc, ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
+        except _py2_ParseBaseException_cls as err:  # only ever matches on Python 2
+            _incremental_cache_failure(err, hit, instring, cache, lookup, outer_parent_usefullness_obj)
             raise
         else:
             # but if we're caching a success for the outer parse, then we will need inner cache items to reparse
             # ParserElement._incremental_parent_usefullness_obj[0] = True  # not necessary because it's our default assumption
             if hit is not True:
                 # update furthest_loc
-                ParserElement._furthest_locs[instring] = max(ParserElement._furthest_locs[instring], new_loc)
+                _ParserElement_cls._furthest_locs[instring] = max(_ParserElement_cls._furthest_locs[instring], new_loc)
                 # when not in hybrid mode, we don't have to cache ret_toks,
                 #  since we just recompute the parse action anyway on a success
-                if ParserElement._incremental_hybrid_mode:
+                if _ParserElement_cls._incremental_hybrid_mode:
                     # on hybrid success, cache ((new_loc, ret_toks), furthest loc, usefullness_obj)
-                    _cache_set(cache, lookup, ((new_loc, ret_toks.copy()), ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
-                elif ParserElement._incremental_cache_successes:
+                    _cache_set(cache, lookup, ((new_loc, ret_toks.copy()), _ParserElement_cls._furthest_locs[instring], outer_parent_usefullness_obj))
+                elif _ParserElement_cls._incremental_cache_successes:
                     # on non-hybrid success, cache (True, furthest loc, usefullness_obj)
-                    _cache_set(cache, lookup, (True, ParserElement._furthest_locs[instring], outer_parent_usefullness_obj))
+                    _cache_set(cache, lookup, (True, _ParserElement_cls._furthest_locs[instring], outer_parent_usefullness_obj))
             return new_loc, ret_toks
         finally:
-            ParserElement._incremental_parent_usefullness_obj = outer_parent_usefullness_obj
+            try:
+                if not got_value and _handled_exceptions_in_finally:
+                    err = _get_handled_exception()
+                    if isinstance(err, _ParseBaseException_cls):
+                        _incremental_cache_failure(err, hit, instring, cache, lookup, outer_parent_usefullness_obj)
+            finally:
+                _ParserElement_cls._incremental_parent_usefullness_obj = outer_parent_usefullness_obj
 
     _parse = _parseNoCache
 
