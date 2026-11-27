@@ -1,6 +1,7 @@
 name: Build
 
-on: [push, pull_request, release]
+# (run this workflow manually on master to publish the current version, like publishing a release does)
+on: [push, pull_request, release, workflow_dispatch]
 
 jobs:
   build_wheels:
@@ -56,7 +57,7 @@ jobs:
     environment:
       name: pypi
       url: https://pypi.org/p/cpyparsing
-    if: github.event_name == 'release' && github.event.action == 'published'
+    if: (github.event_name == 'release' && github.event.action == 'published') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master')
 
     steps:
     - uses: actions/download-artifact@v4

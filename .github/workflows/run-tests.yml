@@ -28,4 +28,4 @@ jobs:
       - run: make install
       - run: make test
       - run: make build
-      # (releases are published with wheels for every platform by the Build workflow when a GitHub release is published)
+      # (releases are published with wheels for every platform by the Build workflow, when a GitHub release is published or the workflow is run manually on master)
