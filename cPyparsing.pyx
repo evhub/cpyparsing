@@ -41,7 +41,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 __version__ = "2.4.7.2.4.3"
 __versionTime__ = "16 Feb 2026 09:38 UTC"
 _FILE_NAME = "cPyparsing.pyx"
-_WRAP_CALL_LINE_NUM = 1344
+_WRAP_CALL_LINE_NUM = 1643
 
 # [CPYPARSING] author
 __author__ = "Evan Hubinger <evanjhub@gmail.com>"
@@ -55,9 +55,21 @@ py_repr = repr
 #-----------------------------------------------------------------------------------------------------------------------
 
 # [CPYPARSING] C-level helpers
-from cpython.object cimport PyObject, PyTypeObject
+from cpython.object cimport PyObject
 from cpython.long cimport PyLong_FromVoidPtr
 from cpython.ref cimport Py_XDECREF
+
+cdef extern from *:
+    """
+    /* call base's tp_new on type with the given args tuple and no kwargs (i.e. base.__new__(type, *args)) */
+    static CYTHON_INLINE PyObject *_cPyparsing_tp_new_of(PyObject *base, PyObject *type, PyObject *args) {
+        return ((PyTypeObject *)base)->tp_new((PyTypeObject *)type, args, NULL);
+    }
+    /* whether a and b have the same tp_new */
+    #define _cPyparsing_same_tp_new(a, b) (((PyTypeObject *)(a))->tp_new == ((PyTypeObject *)(b))->tp_new)
+    """
+    object _cPyparsing_tp_new_of(object base, object type, object args)
+    bint _cPyparsing_same_tp_new(object a, object b)
 
 # [CPYPARSING] C-level references to classes used in hot paths (avoids module dict
 #  lookups), each set as soon as the corresponding class is defined
@@ -534,13 +546,13 @@ cdef object _new_ParseException(pstr, loc, msg, elem):
     cls = _ParseException_cls
     if not (
         _pbe_fast_slots
-        and (<PyTypeObject*>cls).tp_new == (<PyTypeObject*>Exception).tp_new
+        and _cPyparsing_same_tp_new(cls, Exception)
         and cls.__init__ is _ParseBaseException_init
     ):
         return cls(pstr, loc, msg, elem)
     # same as type.__call__: tp_new with the call args, then ParseBaseException.__init__
     call_args = (pstr, loc, msg, elem)
-    exc = (<PyTypeObject*>cls).tp_new(<type>cls, <PyObject*>call_args, NULL)
+    exc = _cPyparsing_tp_new_of(cls, cls, call_args)
     _cPyparsing_slot_set(exc, _pbe_loc_off, loc)
     if msg is None:
         _cPyparsing_slot_set(exc, _pbe_msg_off, pstr)
@@ -668,7 +680,7 @@ cdef object _copy_parse_exception(pe):
     cdef PyObject* pe_args
     # equivalent to pe.__class__.__new__(pe.__class__) but without the attribute lookups
     exc_type = type(pe)
-    cache_exc = (<PyTypeObject*>exc_type).tp_new(<type>exc_type, <PyObject*>_empty_tuple, NULL)
+    cache_exc = _cPyparsing_tp_new_of(exc_type, exc_type, _empty_tuple)
     if _pbe_fast_slots and _is_base_parse_exc_type(exc_type):
         pe_loc = _cPyparsing_slot_get(pe, _pbe_loc_off)
         pe_msg = _cPyparsing_slot_get(pe, _pbe_msg_off)
@@ -1487,11 +1499,10 @@ MutableMapping.register(ParseResults)
 
 # [CPYPARSING] fast ParseResults helpers
 _ParseResults_cls = ParseResults
-cdef PyTypeObject* _object_type = <PyTypeObject*>object
 
 cdef object _ParseResults_from_list(list toklist, asList, modal):
     """Equivalent to ParseResults(toklist, None, asList=asList, modal=modal)."""
-    retobj = _object_type.tp_new(<type>_ParseResults_cls, <PyObject*>_empty_tuple, NULL)
+    retobj = _cPyparsing_tp_new_of(object, _ParseResults_cls, _empty_tuple)
     # same attributes, set in the same order, as ParseResults.__new__ + ParseResults.__init__
     retobj._ParseResults__doinit = False
     retobj._ParseResults__name = None
